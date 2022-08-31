@@ -1,0 +1,2590 @@
+---
+title: Particles are hotspots of microbial secondary metabolite biosynthetic gene
+  clusters through the permanently anoxic Cariaco Basin water column
+author: "David Geller-McGrath"
+output:
+  html_document:
+    df_print: paged
+---
+
+### 06-23-2022
+
+
+Note: Some sections of this analysis were done on a compute node of a High Performance Computing (HPC) cluster based at the Woods Hole Oceanographic Institute (WHOI) that is called Poseidon. All of the analysis done here using R can be run locally; HPC processing was used to speed up computations.
+
+
+
+## Particle-associated (PA)/free-living (FL) differential abundance analysis of Cariaco high-quality MAGs
+
+Load required libraries, create matrix of counts. Each column will represent a metagenomic sample and rows will correspond to metagenome-assembled genomes (MAGs). Each cell will contain the number of reads that mapped to the contigs of a MAG.
+```{r}
+library(tidyverse) # loads several useful data-wrangling and plotting libraries
+library(furrr) # library of purrr-style iterators that utilize multiple cores for parallel processing
+library(DESeq2) # library for running differential abundance analysis
+library(gridtext) # for editing text in heatmap plots
+library(ComplexHeatmap) # for heatmap plots
+library(pheatmap) # for heatmap plots
+library(cowplot) # for combining various plots together in grids
+library(BiocParallel) # for DESeq2 parallel processing
+library(ggtext) # used for ggplots
+library(glue) # used for ggplots
+
+plan(multicore, workers = 35) # 35 cores allotted to furrr's multicore iterators
+options(future.globals.maxSize = 5242880000) #5000 * 1024^2; 5Gb memory allotted to each core
+
+setwd('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/coverM/final_counts_of_reads_mapped_to_genomes/')
+
+files = system('ls *.tsv', intern = TRUE) 
+sample_names = str_replace(files, '_counts_reads_mapped_per_genome.tsv', '')
+
+# Create a list of read-mapping results (in tibble format); mapped reads to the MAGs (all contigs)
+# Note: furrr's iterators are implemented like purrr's with the added 'future_' prepended to the function name; it will call the iterations in parallel across multiple cores
+mapped_read_counts = future_map2( 
+  files,
+  sample_names, ~
+    vroom::vroom(
+      file = .x,
+      delim = '\t',
+      col_names = c('mag_name', .y),
+      skip = 1,
+      show_col_types = FALSE
+    )
+)
+
+# Join all read-mapping results together into a tibble by the column of MAG names in each list component
+mapped_read_counts =
+  reduce(mapped_read_counts, left_join, by = 'mag_name')
+```
+
+
+Load additional data related to the differential abundance analysis, prep the DESeq2 object and run DESeq2
+```{r}
+# Load a tibble with taxonomic and assembly information for each MAG
+mag_table <- readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/coverM/deseq2_dnaseq_rdata/draftMag-taxonomic-table-cariaco.RDA')
+
+# Create metadata tibble for the metagenomic samples
+sampleNames_key <- tibble(
+  sample_name = colnames(mapped_read_counts)[2:ncol(mapped_read_counts)]) %>%
+  mutate(depth = str_replace(sample_name, '.*(\\d{3}).*', '\\1'),
+         season = case_when(
+           (depth == 103 | depth == 198 | depth == 234 | depth == 295 | depth == 314) ~ 'M',
+           (depth == 143 | depth == 200 | depth == 237 | depth == 247 | depth == 267) ~ 'N',
+                            str_detect(sample_name, 'M') ~ 'M',
+                            str_detect(sample_name, 'N') ~ 'N'),
+         fraction = if_else(str_detect(sample_name, 'A'), 'PA', 'FL'),
+         replicate = if_else(str_detect(sample_name, 'a'), 1, 2),
+         new_column_names = paste0(season, fraction, depth, '_', replicate)) %>%
+  arrange(factor(sample_name, levels = colnames(select(mapped_read_counts, -mag_name))))
+
+all(sampleNames_key$sample_name == colnames(select(mapped_read_counts, -mag_name))) #TRUE
+
+# Create sample metadata for use in the DESeq() function. This analysis will look for differential abundance patterns between fractions in three different chemically distinct water layers: the oxycline, shallow anoxic, and euxinic depths
+coldata <- sampleNames_key %>%
+  select(depth, fraction, new_column_names) %>%
+  mutate(layer = case_when(depth == 900 ~ 'euxinic',
+                           depth >= 103 & depth <= 237 ~ 'oxycline',
+                           depth > 237 & depth < 900 ~ 'shallow.anoxic')) %>%
+  select(-depth) %>%
+  dplyr::rename(sample = new_column_names) %>%
+  unite(group, c(fraction, layer), sep = '_') %>%
+  relocate(sample) %>%
+  mutate(group = as_factor(group))
+
+# Rename the mapped-read counts tibble with metagenomic sample naming scheme used in the paper
+mapped_read_counts = mapped_read_counts %>%
+  rename_with(
+    ~ sampleNames_key$new_column_names,
+    .cols = 2:last_col()) %>%
+  column_to_rownames(var = 'mag_name')
+
+# Create the DESeq2 analysis object
+da_dds <- DESeq2::DESeqDataSetFromMatrix(countData = mapped_read_counts,
+                                         colData = coldata,
+                                         design = ~ group)
+
+# Run the DESeq2 statistical model on the data; assumes the data have a negative binomial distribution
+da_final_dds <- DESeq(da_dds) 
+```
+
+
+Extract the results from the oxycline, shallow anoxic, and euxinic depths that compare PA and FL fraction types
+```{r}
+# pull Wald test results comparing the oxycline PA to FL fractions
+oxycline <- results(da_final_dds, contrast = c('group',
+                                               'PA_oxycline', 'FL_oxycline'), alpha = 0.05)
+
+# pull Wald test results comparing the euxinic PA to FL fractions
+euxinic <- results(da_final_dds, contrast = c('group',
+                                              'PA_euxinic', 'FL_euxinic'), alpha = 0.05)
+
+# pull Wald test results comparing the shallow anoxic PA to FL fractions
+shallow_anoxic <- results(da_final_dds, contrast = c('group', 'PA_shallow.anoxic',
+                                                     'FL_shallow.anoxic'), alpha = 0.05)
+
+# create a comprehensive tibble including all differential abundance results
+# classify MAG fraction "preference" based on the direction of log2FoldChange and the adjusted p-values
+allDaResults <- list(oxycline = oxycline,
+                     shallow_anoxic = shallow_anoxic,
+                     euxinic = euxinic) %>%
+  imap(~ .x %>%
+         as.data.frame() %>%
+         rownames_to_column(var = 'mag_name') %>%
+         mutate(mag_name = str_replace(mag_name, 'CarAnox_mtb2', 'MAG')) %>%
+         as_tibble() %>%
+         mutate(preference = case_when(log2FoldChange > 0 & padj < 0.05 ~ 'particle enriched',
+                                       log2FoldChange < 0 & padj < 0.05 ~ 'free-living enriched',
+                                       padj > 0.05 | is.na(padj) ~ 'no significant difference'),
+                layer = .y) %>%
+         left_join(mag_table %>% select(mag_name, phylum), by = 'mag_name') %>%
+         mutate(phylum = if_else(is.na(phylum), 'Unclassified', phylum),
+                preference = factor(preference,
+                                    levels = c(
+                                      'particle enriched',
+                                      'free-living enriched',
+                                      'no significant difference'))))
+
+# save the differential abundance final results tibble
+saveRDS(allDaResults, file = '/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/coverM/deseq2_dnaseq_rdata/deseq2_results_by_water_layer.rds')
+
+```
+
+
+Plot the differential abundance results
+```{r echo=TRUE}
+## plotting
+magFractionPref <- allDaResults %>%
+  map_dfr(~
+            .x %>%
+              mutate(layer = case_when(
+                layer == 'oxycline' ~ 'Oxycline',
+                layer == 'euxinic' ~ 'Euxinic',
+                layer == 'shallow_anoxic' ~ 'Shallow anoxic',
+              ))
+          )
+
+magFractionPref_plot = magFractionPref %>%
+  ggplot(aes(y = fct_rev(fct_infreq(phylum)),
+             fill = fct_relevel(preference, c('no significant difference',
+                                              'free-living enriched',
+                                              'particle enriched')))) +
+  geom_bar() +
+  labs(x = '\nNumber of genomes', y = 'Phylum\n', fill = 'Fraction preference') +
+  theme_bw() +
+  scale_fill_manual(values = c('grey80', 'palegreen3', 'burlywood2')) +
+  facet_wrap(~ fct_relevel(layer, c('Oxycline', 'Shallow anoxic', 'Euxinic'))) +
+  theme(
+    axis.title = element_text(size = 10),
+    strip.text = element_text(size = 10),
+    strip.background = element_rect(fill = 'wheat1'),
+    panel.grid = element_blank(),
+    legend.position = 'top',
+    legend.justification = c(0.92,0)
+  )
+```
+
+
+## Processing of RNA-Seq read-mapping .paf files from Minimap2
+
+Process the .paf output files, filter poor alignments, save the results
+```{r}
+# load required libraries
+library(tidyverse)
+library(furrr)
+
+#set parallel processing params
+plan(multicore, workers = 48)
+options(future.globals.maxSize = 52428800000)
+
+# metadata file of gene names
+gene_metadata = tibble(
+  gene_name = readLines('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/FINAL_MAY_2022_ALL_ANTISMASH6_CONCAT_GENE_FASTA_INDEX/final_concat_gene_names.txt')
+) %>%
+  separate(gene_name,
+           into = c('gene_name', 'start', 'end', 'strand', 'extra_data'),
+           sep = ' # ')
+
+gene_metadata = gene_metadata %>%
+  mutate(gene_name = str_replace(gene_name, '^>', ''))
+
+empty_gene_counts_filler = gene_metadata %>%
+  select(gene_name) %>%
+  mutate(n_reads_mapped = 0L)
+
+rm(gene_metadata)
+
+# set working directory to the one with the .paf output files
+setwd('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/minimap2_metaT_mapping_final_results_used')
+
+# create vector of .paf full file paths
+file_paths = system('ls *.paf', intern = TRUE)
+sample_names = str_replace(file_paths, '.paf', '')
+
+#function to process the .paf files
+prepare_read_mappings = function(.empty_gene_counts_filler, .file_path) {
+
+  # extract metaT sample name from .file_path
+  .sample_name = str_replace(.file_path, '.paf', '')
+
+  # read the .paf file into memory
+  mapping_results = vroom::vroom(
+    .file_path,
+    col_names = c(
+      c(
+        'qname', 'qlen', 'qstart', 'qend',
+        'strand', 'tname', 'tlen', 'tstart',
+        'tend', 'nmatch', 'alen', 'mapq',
+        'X13', 'X14', 'X15', 'X16', 'X17'
+      )
+    ))
+
+  # select cols 1-12
+  mapping_results = select(mapping_results, 1:12)
+
+  # filter to keep only certain alignment results
+  mapping_results = mapping_results %>%
+    filter(
+      alen >= 0.5 * qlen, # the alignment length is at least 50% of the read length
+      nmatch >= 0.95 * alen # at least 95% of the aligned bases are a match
+    )
+
+  mapping_results = mapping_results %>%
+    group_by(tname) %>% # create groupped tibble; groupped by target sequences (genes)
+    summarize(n_reads_mapped = n()) # aggregate the tibble, summing up counts of mapped reads
+
+  # bind the counts of mapped reads to genes with all the other genes, counted zero times
+  mapping_results = mapping_results %>%
+    rename(gene_name = tname) %>%
+    bind_rows(
+      filter(empty_gene_counts_filler, !(gene_name %in% .$gene_name))
+    )
+}
+
+# process .paf files using parallel processing
+processed_mapping_counts = future_map2(
+  list(empty_gene_counts_filler),
+  file_paths, ~
+    prepare_read_mappings(.x, .y)
+)
+
+# save the list of processed files
+saveRDS(processed_mapping_counts, file = 'rdata/list_of_mapped_metaT_reads_from_each_sample.rds')
+```
+
+
+Finish processing the read-mapping results, calculate normalized Transcript Per Million (TPM) values for the final dataset
+```{r}
+# create tibble that has all metatranscriptome read-mapping results joined together
+processed_mapping_counts =
+  reduce(processed_mapping_counts, left_join, by = 'gene_name') %>% 
+  rename_with( # rename the meteatranscriptome sample columns based on naming scheme used in the paper
+    ~ sample_names,
+    .cols = 2:last_col()) %>%
+  mutate(gene_name = str_replace(
+    gene_name, '(MAG_\\d+)_(\\d+_\\d+)', '\\1-ctg\\2'))
+
+#read in gene lengths data
+gl = readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/rdata/gene_lengths_tibble.rda')
+
+gl = gl %>%
+  mutate(gene_length = gene_length / 1000) # convert unit length to kilobases
+
+# join gene length data to read-mapping data
+# divide each read-mapping count by the length of the gene that it mapped to
+processed_mapping_counts = processed_mapping_counts %>%
+  left_join(gl, by = 'gene_name') %>%
+  relocate(gene_length, .after = 1) %>%
+  mutate(across(3:last_col(), ~ .x / gene_length))
+
+# function to convert RNA-seq counts to TPM; TPM is normalized across and within samples
+# the counts tibble has already had each cell divided by gene length
+# this function will calculate the TPM scaling factor for each column and divide each cell in a column by the scaling factor, for all columns
+get_tpm_for = function(col) {
+  scaling_factor = sum(col) / 1e6
+  col = col / scaling_factor
+  return(col)
+}
+
+# finalize the TPM normalization
+processed_mapping_counts = processed_mapping_counts %>%
+  select(-gene_length) %>%
+  mutate(across(2:last_col(), ~ get_tpm_for(.x)))
+
+# read in biosynthetic gene cluster (BGC) metadata, parsed from antiSMASH 6 output
+bgc = vroom::vroom(
+  '/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/salmon_related_data_files/bgc_genes_from_10kb_clusters.txt',
+  show_col_types = FALSE)
+
+bgc = bgc %>%
+  mutate(gene_name = str_replace(
+    gene_name,
+    '(^ctg\\d+_\\d+)-(MAG.*)', '\\2-\\1'
+  ))
+
+# filter the TPM-normalized read-mapping data to retain only biosynthetic gene cluster
+# transcript mappings from biosynthetic clusters that were at least 10 kilobases in size
+processed_mapping_counts = processed_mapping_counts %>%
+  filter(gene_name %in% bgc$gene_name)
+
+# save the output
+saveRDS(processed_mapping_counts, file = 'rdata/tpm_for_bgc_genes_minimap2_res.rds')
+
+```
+
+
+## Processing and of DNA-Seq mapping results for MAG relative abundance plotting
+
+Process the CoverM relative abundance output files, plot relative abundance of the most abundant MAGs
+```{r echo=TRUE}
+# FIND THE CODE TO PRODUCE THIS .RDS FILE, ADD IT ABOVE HERE
+final_genome_rel_abun_tbl = readRDS('rdata-files/rel_abun_tibble_48_samples.rds')
+
+# create sample names key
+metaG_sampleNames_key.X = tibble(
+  sample_name = colnames(final_genome_rel_abun_tbl)[2:ncol(final_genome_rel_abun_tbl)],
+  depth = str_replace(sample_name, '.*(\\d{3}).*', '\\1'),
+  fraction = if_else(str_detect(sample_name, 'A'), 'PA', 'FL'),
+  season = case_when(
+    str_detect(sample_name, 'AM|BM') ~ 'M',
+    str_detect(sample_name, 'AN|BN') ~ 'N',
+    depth %in% c(103,198,234,295,314) ~ 'M',
+    depth %in% c(143,200,237,247,267) ~ 'N'),
+  replicate = if_else(str_detect(sample_name, 'a'), 1, 2),
+  new_sample_name = paste0(season, fraction, depth, '_', replicate)
+)
+
+all(colnames(final_genome_rel_abun_tbl)[2:ncol(final_genome_rel_abun_tbl)] == metaG_sampleNames_key.X$sample_name)
+#TRUE
+
+# color palette listing the color choices for all annotation rows/columns on the heatmap
+relPalette <- list(Layer = c(
+  'Oxycline' = 'darkslategray3',
+  'Shallow anoxic' = 'gold',
+  'Euxinic' =  'sienna3'),
+
+  Fraction = c('PA' = 'darkgreen',
+               'FL' = 'darkseagreen2'),
+
+  Season = c('May' = 'slategray',
+             'November' = 'slategray1'),
+
+                   `Depth (m)` = c(
+                     '103' = 'grey90',
+                     '143' = 'grey85',
+                     '198' = 'grey80',
+                     '200' = 'grey75',
+                     '234' = 'grey70',
+                     '237' = 'grey65',
+                     '247' = 'grey60',
+                     '267' = 'grey55',
+                     '295' = 'grey50',
+                     '314' = 'grey45',
+                     '900' = 'grey20'
+                   ),
+
+                   `Phylum/Class` = c('Planctomycetota' = 'wheat1',
+                                      'Desulfobacterota' = 'tomato',
+                                      'Myxococcota' = 'orange',
+                                      'Alphaproteobacteria' = 'orchid1',
+                                      'Gammaproteobacteria' = 'thistle1',
+                                      'Chloroflexota' = 'slateblue1',
+                                      'Marinisomatota' = 'aquamarine',
+                                      'Aenigmarchaeota' = 'gold',
+                                      'Krumholzibacteriota' = 'darkred',
+                                      'Omnitrophota' = 'darkviolet',
+                                      'Verrucomicrobiota' = 'khaki',
+                                      'Thermoplasmatota' = 'firebrick1',
+                                      'AABM5-125-24' = 'gainsboro',
+                                      'Bacteroidota' = 'springgreen',
+                                      'SAR324' = 'chocolate4',
+                                      'Cloacimonadota' = 'grey28',
+                                      'Crenarchaeota' = 'yellowgreen',
+                                      'Acidobacteriota' = 'deepskyblue',
+                                      'Actinobacteriota' = '#666666',
+                                      'Eisenbacteria' = '#B89B74',
+                                      'Gemmatimonadota' = 'lightsteelblue1',
+                                      'Altiarchaeota' = 'ivory',
+                                      'Nitrospinota' = '#2A7FB7',
+                                      'Fermentibacterota' = '#1B9E77',
+                                      'Latescibacterota' = '#AD4C9E',
+                                      'Patescibacteria' = 'dodgerblue4',
+                                      'Undinarchaeota' = 'turquoise',
+                                      'Unclassified' = '#5A8950'
+                   ))
+
+mag_table = mag_table %>%
+  mutate(phylum = if_else(is.na(phylum), 'Unclassified', phylum))
+
+
+final_genome_rel_abun_tbl = 
+  final_genome_rel_abun_tbl %>%
+  rename(mag_name = Genome) %>%
+  filter(!mag_name %in% c('unmapped', paste0('CarAnox_mtb2_', c(1507, 983, 769)))) %>%
+  mutate(mag_name = str_replace(mag_name, 'CarAnox_mtb2', 'MAG')) %>%
+  left_join(
+    mag_table %>%
+      select(mag_name, tax_num),
+    by = 'mag_name'
+  ) %>% 
+  relocate(tax_num, .after = 1) %>%
+  arrange(tax_num) %>%
+  select(-mag_name) %>%
+  column_to_rownames(var = 'tax_num') %>%
+  mutate(across(1:last_col(), ~ log1p(.x)), # log-transform relative abundance percentages 
+         row_sums = rowSums(.[1:ncol(.)])) %>%
+  filter(row_sums > 0.005 * max(row_sums)) %>% # keep only the most abundant MAGs across the samples
+  select(-row_sums) %>%
+  rename_with(
+    ~ metaG_sampleNames_key.X$new_sample_name,
+    .cols = 1:last_col()) %>%
+  relocate(
+    metaG_sampleNames_key.X %>%
+      arrange(desc(fraction), depth) %>%
+      pull(new_sample_name),
+    .after = 1)
+
+# create character vector of phylums of the most abundant MAGs, sorted by the most to the least frequently appearing phylum
+# split Proteobacteria in Alpha- and Gammaproteobacteria classes
+phylum_order =
+  final_genome_rel_abun_tbl %>%
+  mutate(row_sums = rowSums(.),
+         tax_num = rownames(.)) %>%
+  left_join(
+    mag_table %>%
+      select(tax_num, phylum, class),
+    by = 'tax_num') %>%
+  select(c(row_sums, tax_num, phylum, class)) %>%
+  mutate(phylum = if_else(phylum == 'Proteobacteria', class, phylum)) %>%
+  select(-class) %>%
+  group_by(phylum) %>%
+  mutate(group_sum = sum(row_sums)) %>%
+  ungroup() %>%
+  arrange(desc(group_sum), phylum) %>%
+  pull(phylum) %>%
+  unique()
+
+#change UAP2
+phylum_order[28] = 'Undinarchaeota'
+
+
+# create final relative abundance matrix to be used for plotting
+final_genome_rel_abun_tbl =
+  final_genome_rel_abun_tbl %>%
+  mutate(row_sums = rowSums(.),
+         tax_num = rownames(.)) %>%
+  left_join(
+    mag_table %>%
+      select(tax_num, phylum, class),
+    by = 'tax_num') %>%
+  mutate(phylum = if_else(
+    phylum == 'Proteobacteria', class, phylum)) %>%
+  select(-class) %>%
+  group_by(phylum) %>%
+  mutate(group_sum = sum(row_sums)) %>%
+  ungroup() %>%
+  arrange(desc(group_sum), phylum) %>%
+  select(-c(row_sums, group_sum, phylum)) %>%
+  column_to_rownames(var = 'tax_num') %>%
+  relocate( # function rearrange the columns by season, and water layer - incrementally increasing in depth
+    colnames(.) %>%
+      {function(x) {
+        tbl = tibble(
+          mpa = x[str_detect(x, 'MPA')],
+          npa = sort(c('NPA143_2', x[str_detect(x, 'NPA')])),
+          mfl = x[str_detect(x, 'MFL')],
+          nfl = x[str_detect(x, 'NFL')]
+        ) %>%
+          mutate(groupper = rep(paste0('group_',
+                                       seq(1, 6, by = 1)),
+                                each = 2)) %>%
+          group_by(groupper) %>%
+          summarize(across(everything(), ~
+                             paste0(.x, collapse = ';')),
+                    .groups = 'drop') %>%
+          select(-groupper)
+
+        pa = as.vector(rbind(tbl$mpa, tbl$npa))
+        fl = as.vector(rbind(tbl$mfl, tbl$nfl))
+
+        g = c(pa, fl)
+        g = str_split(g, pattern = ';') %>% unlist()
+        g = g[g != 'NPA143_2']
+
+        return(g)}}()
+    ) %>%
+  as.matrix()
+
+
+# row metadata for relative abundance plot - the phylum/class of each MAG
+row_anno =
+  final_genome_rel_abun_tbl %>%
+  as.data.frame() %>%
+  rownames_to_column(var = 'tax_num') %>%
+  select(tax_num) %>%
+  left_join(
+    mag_table %>%
+      select(tax_num, phylum, class),
+    by = 'tax_num') %>%
+  as_tibble() %>%
+  mutate(phylum = if_else(
+    phylum == 'Proteobacteria', class, phylum)) %>%
+  select(-class) %>%
+  mutate(phylum = if_else(phylum == 'UAP2', 'Undinarchaeota', phylum)) %>% 
+  rename(`Phylum/Class` = phylum) %>%
+  arrange(factor(`Phylum/Class`, levels = phylum_order)) %>%
+  column_to_rownames(var = 'tax_num')
+
+
+# sort the Phylum/Class color palette by frequency
+relPalette$`Phylum/Class` = relPalette$`Phylum/Class`[unique(row_anno$`Phylum/Class`)]
+
+
+# column metadata for the relative abundance heatmap; annotation codings for sample fraction, sampling season, water layer, and water depth
+col_anno = tibble(
+  cols = colnames(final_genome_rel_abun_tbl),
+  Fraction = str_replace(cols, '[A-Z]{1}([A-Z]{2})\\d{3}.*', '\\1'),
+  Season = if_else(str_detect(cols, 'M'), 'May', 'November'),
+  Layer = str_replace(cols, '[A-Z]+(\\d+)_.*', '\\1')
+) %>%
+  mutate(Layer = as.integer(Layer),
+         Layer = case_when(
+           Layer < 247 ~ 'Oxycline',
+           Layer >= 247 & Layer < 900 ~ 'Shallow anoxic',
+           TRUE ~ 'Euxinic'
+         )) %>%
+  mutate(`Depth (m)` = str_replace(
+    cols, '.*(\\d{3}).*', '\\1'
+  )) %>%
+  column_to_rownames(var = 'cols') %>%
+  relocate(`Depth (m)`, Fraction, Season, Layer)
+
+
+# 
+final_genome_rel_abun_plot = final_genome_rel_abun_tbl %>%
+  pheatmap::pheatmap(
+    name = 'Relative abundance (% total reads)',
+    angle_col = '315',
+    fontsize = 8,
+    annotation_row = row_anno,
+    annotation_col = col_anno,
+    annotation_colors = relPalette,
+    show_colnames = FALSE,
+    gaps_col = 23,
+    clustering_method = 'ward.D',
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+    show_rownames = FALSE,
+    treeheight_row = 0,
+    treeheight_col = 0,
+    color =
+      c(colorRampPalette(colors = 'white')(1),
+        colorRampPalette(colors = c(
+          '#ebf4f7',
+          '#aae6fa',
+          '#f7e96d',
+          '#f7e43b',
+          'orange',
+          '#ff6a00',
+          'firebrick1',
+          'darkorchid3',
+          'purple4'))(3000)),
+    legend_breaks = seq(0, 3.5, by = 0.5),
+    legend_labels = gt_render(c(
+      '0%   ',
+      '0.64%   ',
+      '1.72%   ',
+      '3.48%   ',
+      '6.39%   ',
+      '11.18%   ',
+      '19.09%   ',
+      '32.12%   '))
+  )
+
+
+ggsave(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/LAST_final_rel_abun_june_2022.svg',
+       plot = final_genome_rel_abun_plot,
+       width = 7,
+       height = 10)
+
+final_genome_rel_abun_plot
+```
+
+
+## Functionally annotating genes within BGCs, plotting biosynthetic genes and transcripts by function
+
+Format antibiotic resistance gene annotation and expression data, save the data as a supplementary table, plot the genomic potential/transcript expression
+```{r}
+# formatting antibiotic resistance gene data ------------------------------
+
+ar = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/antibiotic-resistance-hmm-scan-results.rda')
+load('~/Documents/cariaco-tidy-analysis/rdata-files/sm_cluster_gene_desriptive_tibbles_from_anti6_cluster_gbk_outputs_march_2022.rdata')
+# loads:
+# clust_gene_descr
+# clust_gene_summary
+
+clust_gene_summary = clust_gene_summary %>%
+  mutate(mag_name = str_replace(filename, '(MAG_\\d+)_.*', '\\1'), .before = 1) %>%
+  rename(gene_identifier = gene)
+
+ar = ar %>%
+  select(cluster_name, query_name, sequence_evalue,
+         gene_identifier, start_to_end, strand) %>%
+  filter(sequence_evalue < 1e-5) %>% # filter antibiotic resistance HMM hits to keep those with e-value less than 1e-05
+  mutate(mag_name = str_replace(cluster_name, '(MAG_\\d+)_.*', '\\1'), .before = 1) %>%
+  left_join(clust_gene_summary, by = c('mag_name', 'gene_identifier')) %>%
+  select(-c(product, evalue, aSDomain, description)) %>%
+  mutate(gene_name = paste0('ctg', ID, '-', mag_name), .after = 1)
+
+
+# this is the finished version of the antibiotic resistance genes present in the gene clusters
+ar =
+  ar %>%
+  group_by(gene_name) %>%
+  filter(sequence_evalue == min(sequence_evalue)) %>%
+  ungroup() %>%
+  group_by(mag_name, gene_name, contig) %>%
+  summarize(gene_fns = paste0(query_name, collapse = ';'),
+            start_end_summary = paste0(start_to_end, collapse = ';'),
+            .groups = 'drop') %>%
+  left_join(mag_table %>%
+              select(mag_name, domain, phylum),
+            by = 'mag_name') %>%
+  left_join(bnh_summary %>%
+              select(contig, is_hybrid, product),
+            by = 'contig')
+
+#remove data from clusters that are not greater than 10kb in length
+ar = ar %>%
+  filter(!is.na(product))
+
+#import resfams metadata
+resfams_metadata = read_csv('~/Downloads/180102_resfams_metadata_updated_v1.2.2.csv') %>%
+  select(-c(4:5)) %>%
+  rename(gene_fns = 2,
+         binned_gene_fns = 6) %>%
+  mutate(gene_fns = case_when(
+    gene_fns == 'RNDAntibioticEffluxPump' ~ 'RND_efflux',
+    gene_fns == 'MFSAntibioticEffluxPump' ~ 'MFS_efflux',
+    gene_fns == 'Tetracycline_Resistance_Ribosomal_Protection_Protein' ~ 'tet_ribosomoal_protect',
+    gene_fns == 'Chloramphenicol_Acetyltransferase_CAT' ~ 'Chlor_Acetyltrans_CAT',
+    gene_fns == 'ABCAntibioticEffluxPump' ~ 'ABC_efflux',
+    gene_fns == 'Chloramphenicol_Phosphotransferase_CPT' ~ 'Chlor_Phospho_CPT',
+    gene_fns == 'FluoroquinoloneResistantDNATopoisomerase' ~ 'Fluor_Res_DNA_Topo',
+    gene_fns == 'Erm23SRibosomalRNAMethyltransferase' ~ 'Erm23S_rRNA_methyltrans',
+    gene_fns == 'Cfr23RibosomalRNAMethyltransferase' ~ 'Cfr23_rRNA_methyltrans',
+    gene_fns == 'QuinoloneResistanceProteinQnr' ~ 'Qnr',
+    gene_fns == 'MacrolideGlycosyltransfer' ~ 'macrolide_glycosyl',
+    gene_fns == 'Tetracycline_Resistance_MFS_Efflux_Pump' ~ 'tet_MFS_efflux',
+    gene_fns == 'CPT' ~ 'Chlor_Phospho_CPT',
+    gene_fns == 'Chloramphenicol_Efflux_Pump' ~ 'Chlor_Efflux_Pump',
+    gene_fns == '16S_Ribosomal_RNA_Methyltransferase' ~ '16S_rRNA_methyltrans',
+    TRUE ~ gene_fns
+  ))
+
+
+
+ar_final = ar %>%
+  mutate(gene_fns = str_replace(gene_fns, '(.*);.*', '\\1')) %>%
+  group_by(gene_fns) %>%
+  add_tally() %>%
+  left_join(
+    resfams_metadata %>%
+      select(2, 6) %>%
+      rename(gene_fns = 1,
+             binned_gene_fns = 2),
+    by = 'gene_fns') %>%
+  ungroup() %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = TRUE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product
+  ))
+
+ar_gene_suppl_table = ar_final %>%
+  separate(
+    start_end_summary,
+    into = c('start_position_on_contig', 'end_position_on_contig'),
+    sep = ':') %>%
+  rename(
+    hmm_annotation = gene_fns,
+    resfam_functional_category = binned_gene_fns,
+    from_hybrid_cluster = is_hybrid) %>%
+  select(-n) %>%
+  relocate(resfam_functional_category, .after = hmm_annotation) %>%
+  relocate(c(domain, phylum), .after = mag_name)
+
+# save .tsv of antibiotic resistance gene annotations
+vroom::vroom_write(ar_gene_suppl_table, file = 'stables/antibiotic_resistance_genes_metadata_suppl_table.tsv')
+
+
+# plotting ----------------------------------------------------------------
+
+# create plot of all antibiotic resistance genes from all high-quality MAGs
+total_ar_plot =
+  ar %>%
+  mutate(gene_fns = str_replace(gene_fns, '(.*);.*', '\\1')) %>%
+  left_join(resfams_metadata %>%
+              select(gene_fns, binned_gene_fns),
+            by = 'gene_fns') %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = FALSE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product)) %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(group = 'Antibiotic resistance genes'
+         #'Total antibiotic resistance gene count by biosynthetic clusters class'
+  ) %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  select(binned_gene_fns, product, group, number) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns
+  )) %>%
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(product)))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  theme(
+    axis.ticks.y = element_blank(),
+    panel.grid = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10),
+    strip.background = element_rect(fill = "wheat1"),
+    legend.position = c(0.99, 0.975),
+    strip.text = element_text(size = 11),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8),
+    legend.justification = c(1, 0.99),
+    legend.background = element_blank(),
+    panel.border = element_rect(color = 'black', fill = NA),
+    legend.box.background = element_rect(color = 'black'),
+    #legend.position = 'none'  ## removes it
+  ) +
+  labs(y = 'Number of genes\n', x = '\nTotal genes\n',
+       fill = 'Biosynthetic cluster class') +
+  #scale_y_continuous(breaks = seq(0, 600, by = 50)) +
+  scale_fill_manual(values = smc_palette) +
+  guides(fill = guide_legend(ncol = 3)) +
+  facet_wrap(~ group, scales = 'free') +
+  scale_x_continuous(breaks = seq(0, 600, by = 150))
+
+
+# plot of transcripts detected in PA metatranscriptomes - groupped by antibiotic resistance type
+pa_final_antibiotic_expr_plot = pa_ar_expr_plot$data %>%
+  select(binned_gene_fns, product) %>%
+  mutate(group = 'Particle-associated') %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other Efflux|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns)) %>%
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 11),
+    axis.text.x = element_text(size = 10),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    legend.position = 'none',
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts'
+  )
+
+
+
+# plot of transcripts detected in FL metatranscriptomes - groupped by antibiotic resistance type
+fl_final_antibiotic_expr_plot =
+  fl_ar_expr_plot$data %>%
+  select(binned_gene_fns, product) %>%
+  mutate(group = 'Free-living') %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other Efflux|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns
+  )) %>%
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 10),
+    axis.text.x = element_text(size = 10),
+    axis.title.y = element_blank(),
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = 'none') +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts'
+  ) +
+  scale_x_reverse(limits = c(75, 0))
+
+
+
+final_transcript_plotgrid = plot_grid(
+  fl_final_antibiotic_expr_plot,
+  pa_final_antibiotic_expr_plot,
+  nrow = 1,
+  rel_widths = c(0.6, 0.4)
+)
+
+
+# final combined plot of antibiotic resistance genomic potential/transcript detection
+FINAL_ANTIBIOTIC_RESIST_PLOT =
+  plot_grid(total_ar_plot,
+            final_transcript_plotgrid,
+            ncol = 1,
+            labels = 'auto',
+            rel_heights = c(0.51, 0.49))
+```
+
+
+Format antibiotic resistance gene annotation and expression data, save the data as a supplementary table, plot the genomic potential/transcript expression
+```{r}
+# FIND final_domain_summary OBJECT AND PUT CODE ABOVE THIS THAT CREATES IT
+
+# create plot showing the most frequently occurring core/auxiliary biosynthetic genes in the Cariao MAGs
+all_common_domains_plot =
+  final_domain_summary %>%
+  group_by(description) %>%
+  add_tally() %>%
+  ungroup() %>%
+  filter(!is.na(product)) %>%
+  mutate(description = case_when(
+    str_detect(description,
+               regex('Histidine kinase-', ignore_case = TRUE)) ~ 'ATPase',
+    str_detect(description, regex('ketoacyl synthase', ignore_case = TRUE)) ~ 'Beta-ketoacyl synthase domain',
+    str_detect(description, 'RRE') ~ 'RiPP Recognition Element protein',
+    str_detect(description, 'Coenzyme PQQ synthesis') ~ 'PqqD-like domain',
+    str_detect(description, 'Radical SAM') ~ 'Radical SAM domain',
+    str_detect(description, 'Glycosyl transferase') ~ 'Glycosyl transferase',
+    str_detect(description, 'AMP-binding') ~ 'AMP-binding domain',
+    str_detect(description, 'Squalene') ~ 'Squalene-hopene cyclase domain',
+    str_detect(description, 'Acyl-CoA dehydrogenase') ~ 'Acyl-CoA dehydrogenase domain',
+    str_detect(description, regex(
+      'FAD dependent oxidoreductase|FMN-dependent oxidoreductase', ignore_case = TRUE)) ~
+      'FAD/FMN-dependent oxidoreductase',
+    str_detect(description, 'FAD binding|FAD-binding|FMN binding') ~ 'FAD/FMN binding domain',
+
+    TRUE ~ description)) %>% #view()
+  filter(n > 0.2 * max(n) |
+           description == 'FAD/FMN-dependent oxidoreductase'|
+           description == 'FAD/FMN binding domain') %>% #pull(description) %>% unique()
+  mutate(group = 'Core and additional biosynthetic genes') %>% #pull(description) %>% tabyl() %>% view()
+  select(c(description, product, group)) %>%
+  group_by(description, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  group_by(description) %>%
+  add_tally() %>%
+  ungroup() %>%
+  distinct() %>%
+  arrange(desc(n)) %>%
+  filter(description != 'ABC Transporter') %>%
+
+  ggplot(aes(
+    y = fct_inorder(description),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 11),
+    axis.text = element_text(size = 9),
+    axis.title.y = element_blank(),
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = c(0.9875, 0.98),
+    legend.justification = c(1, 0.99),
+    legend.background = element_blank(),
+    panel.border = element_rect(color = 'black', fill = NA),
+    legend.box.background = element_rect(color = 'black'),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10)
+    #legend.position = 'none'
+  ) +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal genes\n'
+  ) +
+  guides(fill = guide_legend(ncol = 2))
+
+
+
+
+# # create plot showing the most frequently occurring core/auxiliary biosynthetic transcripts in the PA metatranscriptomes
+pa_domains_plot =
+  final_de_and_clust_data %>%
+  filter(gene_name %in% final_domain_summary$gene_name) %>%
+  filter(is_sig_pa_biosynthetic | (pa_counts > 0 & fl_counts == 0)) %>%
+  rename(raw_product = product) %>%
+  left_join(final_domain_summary %>%
+              select(c(mag_name, contig, gene_name, product, description)),
+            by = c('contig', 'mag_name', 'gene_name')) %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = FALSE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product)) %>%
+  select(-n) %>%
+  filter(!is.na(product)) %>%
+  mutate(description = case_when(
+    str_detect(description,
+               regex('Histidine kinase-', ignore_case = TRUE)) ~ 'ATPase',
+    str_detect(description, regex('ketoacyl synthase', ignore_case = TRUE)) ~ 'Beta-ketoacyl synthase domain',
+    str_detect(description, 'RRE') ~ 'RiPP Recognition Element protein',
+    str_detect(description, 'Coenzyme PQQ synthesis') ~ 'PqqD-like domain',
+    str_detect(description, 'Radical SAM') ~ 'Radical SAM domain',
+    str_detect(description, 'Glycosyl transferase') ~ 'Glycosyl transferase',
+    str_detect(description, 'AMP-binding') ~ 'AMP-binding domain',
+    str_detect(description, 'Squalene') ~ 'Squalene-hopene cyclase domain',
+    str_detect(description, 'Acyl-CoA dehydrogenase') ~ 'Acyl-CoA dehydrogenase domain',
+    str_detect(description, regex(
+      'FAD dependent oxidoreductase|FMN-dependent oxidoreductase', ignore_case = TRUE)) ~
+      'FAD/FMN-dependent oxidoreductase',
+    str_detect(description, 'FAD binding|FAD-binding|FMN binding') ~ 'FAD/FMN binding domain',
+
+    TRUE ~ description)) %>%
+  filter(description %in% all_common_domains_plot$data$description) %>%
+  mutate(group = 'Particle-associated') %>% #pull(description) %>% tabyl() %>% view()
+  select(c(description, product, group)) %>%
+  group_by(description, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  group_by(description) %>%
+  add_tally() %>%
+  ungroup() %>%
+  distinct() %>%
+  arrange(desc(n)) %>%
+  filter(description != 'ABC Transporter') %>%
+
+  ggplot(aes(
+    y = factor(description,
+               levels = unique(all_common_domains_plot$data$description)),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 11),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = 'none') +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts') +
+  scale_x_continuous(limits = c(0, 200))
+
+
+
+
+# # create plot showing the most frequently occurring core/auxiliary biosynthetic transcripts in the FL metatranscriptomes
+fl_domains_plot =
+  final_de_and_clust_data %>%
+  filter(gene_name %in% final_domain_summary$gene_name) %>%
+  filter(is_sig_fl_biosynthetic | (fl_counts > 0 & pa_counts == 0)) %>%
+  rename(raw_product = product) %>%
+  left_join(final_domain_summary %>%
+              select(c(mag_name, contig, gene_name, product, description)),
+            by = c('contig', 'mag_name', 'gene_name')) %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = FALSE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product)) %>%
+  select(-n) %>%
+  filter(!is.na(product)) %>%
+  mutate(description = case_when(
+    str_detect(description,
+               regex('Histidine kinase-', ignore_case = TRUE)) ~ 'ATPase',
+    str_detect(description, regex('ketoacyl synthase', ignore_case = TRUE)) ~ 'Beta-ketoacyl synthase domain',
+    str_detect(description, 'RRE') ~ 'RiPP Recognition Element protein',
+    str_detect(description, 'Coenzyme PQQ synthesis') ~ 'PqqD-like domain',
+    str_detect(description, 'Radical SAM') ~ 'Radical SAM domain',
+    str_detect(description, 'Glycosyl transferase') ~ 'Glycosyl transferase',
+    str_detect(description, 'AMP-binding') ~ 'AMP-binding domain',
+    str_detect(description, 'Squalene') ~ 'Squalene-hopene cyclase domain',
+    str_detect(description, 'Acyl-CoA dehydrogenase') ~ 'Acyl-CoA dehydrogenase domain',
+    str_detect(description, regex(
+      'FAD dependent oxidoreductase|FMN-dependent oxidoreductase', ignore_case = TRUE)) ~
+      'FAD/FMN-dependent oxidoreductase',
+    str_detect(description, 'FAD binding|FAD-binding|FMN binding') ~ 'FAD/FMN binding domain',
+
+    TRUE ~ description)) %>%
+  filter(description %in% all_common_domains_plot$data$description) %>%
+  mutate(group = 'Free-living') %>% #pull(description) %>% tabyl() %>% view()
+  select(c(description, product, group)) %>%
+  group_by(description, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  group_by(description) %>%
+  add_tally() %>%
+  ungroup() %>%
+  distinct() %>%
+  arrange(desc(n)) %>%
+  filter(description != 'ABC Transporter') %>%
+
+  ggplot(aes(
+    y = factor(description,
+               levels = unique(all_common_domains_plot$data$description)),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 11),
+    axis.text = element_text(size = 9),
+    axis.title.y = element_blank(),
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = 'none') +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts') +
+  scale_x_reverse(limits = c(200, 0))
+
+
+
+# combine the PA and FL transcript expression bar plots
+final_domains_plotgrid = plot_grid(
+  fl_domains_plot,
+  pa_domains_plot,
+  nrow = 1,
+  rel_widths = c(0.65, 0.35)
+)
+
+
+# combine the expression barplots with the genomic potential bar plot to create the final plot
+FINAL_ALL_DOMAINS_PLOT =
+  plot_grid(all_common_domains_plot,
+            final_domains_plotgrid,
+            ncol = 1,
+            labels = 'auto',
+            rel_heights = c(0.51, 0.49))
+
+```
+
+
+## Differential gene expression analysis
+
+Prepare gene expression matrix for DESeq2 differential expression analysis
+```{r}
+# deseq2 ALL PA DEPTHS VS ALL FL DEPTHS run on minimap2 counts files -- 95% min percent identity of alignments at least 50% of read length aligned  --------
+
+
+
+# set working dir to the one containing .paf files from metatranscriptomic read-mapping to all cariaco MAG genes
+setwd('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/minimap2_metaT_mapping_final_results_used/')
+
+files = system('ls *.paf', intern = TRUE)
+sample_names = str_replace(files, '.paf', '')
+
+# load list of tibbles - each tibble containing the read-mapping counts to genes from each metatranscriptomic sample
+mapped_read_counts = readRDS('rdata/list_of_mapped_metaT_reads_from_each_sample.rds')
+
+# join the tibbles together
+mapped_read_counts =
+  reduce(mapped_read_counts, left_join, by = 'gene_name')
+
+# rename samples to use sample names used in the paper
+mapped_read_counts =
+  mapped_read_counts %>%
+  rename_with(
+    ~ sample_names,
+    .cols = 2:last_col()
+  )
+
+mapped_read_counts =
+  mapped_read_counts %>%
+  mutate(gene_name = str_replace(
+    gene_name, '(MAG_\\d+)_(\\d+_\\d+)', '\\1-ctg\\2'))  %>%
+  as.data.frame() %>%
+  column_to_rownames(var = 'gene_name')
+
+# create column metadata for use with the DESeq() function
+col_data = tibble(sample = colnames(mapped_read_counts)) %>%
+  mutate(fraction = if_else(str_detect(sample, 'PA'), 'PA', 'FL'),
+         depth = str_replace(sample, '[:ALPHA:]{3}(\\d+)_\\d', '\\1'),
+         depth = as.integer(depth),
+         layer = case_when(depth == 900 ~ 'euxinic',
+                           depth >= 103 & depth <= 237 ~ 'oxycline',
+                           depth > 237 & depth < 900 ~ 'shallow.anoxic'),
+         group = paste0(fraction, '_', layer)) %>%
+  select(-c(fraction, depth, layer)) %>%
+  mutate(group = str_replace(group, '(.*)_.*', '\\1')) %>%
+  mutate(group = as_factor(group))
+
+all(colnames(mapped_read_counts) == col_data$sample) # TRUE
+
+# load a tibble containing the length in bp of each gene from all Cariaco MAGs
+gl = readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/rdata/gene_lengths_tibble.rda')
+
+gl = gl %>%
+  mutate(gene_length = gene_length / 1000) # convert length unit to kilobases
+
+logTransformed_mapping_tpm = mapped_read_counts %>%
+  rownames_to_column(var = 'gene_name') %>%
+  as_tibble() %>%
+  left_join(gl, by = 'gene_name') %>%
+  relocate(gene_length, .after = 1) %>%
+  mutate(across(3:last_col(), ~ .x / gene_length))
+
+
+get_tpm_for = function(col) {
+  scaling_factor = sum(col) / 1e6
+  col = col / scaling_factor
+  return(col)
+}
+
+logTransformed_mapping_tpm = logTransformed_mapping_tpm %>%
+  select(-gene_length) %>%
+  mutate(across(2:last_col(), ~ get_tpm_for(.x))) %>%
+  mutate(across(2:last_col(), ~ log1p(.x)))
+
+bgc = vroom::vroom(
+  '/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/salmon_related_data_files/bgc_genes_from_10kb_clusters.txt',
+  show_col_types = FALSE)
+
+bgc = bgc %>%
+  mutate(gene_name = str_replace(
+    gene_name,
+    '(^ctg\\d+_\\d+)-(MAG.*)', '\\2-\\1'
+  ))
+
+logTransformed_mapping_tpm = logTransformed_mapping_tpm %>%
+  filter(gene_name %in% bgc$gene_name)
+
+
+saveRDS(logTransformed_mapping_tpm, file = 'rdata/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
+
+
+
+da_dds <- DESeq2::DESeqDataSetFromMatrix(mapped_read_counts,
+                                         colData = col_data,
+                                         design = ~ group)
+
+register(MulticoreParam(40))
+
+da_final_dds <- DESeq2::DESeq(da_dds, parallel = TRUE) # run the DESeq2 statistical model which assumes a negative binomial distribution for
+# the RNA-seq count matrix data
+
+#estimating size factors
+#estimating dispersions
+#gene-wise dispersion estimates: 40 workers
+#mean-dispersion relationship
+#final dispersion estimates, fitting model and testing: 40 workers
+#-- replacing outliers and refitting for 10694 genes
+#-- DESeq argument 'minReplicatesForReplace' = 7
+#-- original counts are preserved in counts(dds)
+#estimating dispersions
+#fitting model and testing
+
+# pull Wald test results comparing the oxycline PA to FL fractions
+res <- DESeq2::results(da_final_dds,
+                       contrast = c('group',
+                                    'PA',
+                                    'FL'),
+                       alpha = 0.05)
+
+
+
+final_res <- res %>%
+  as.data.frame() %>%
+  rownames_to_column(var = 'mag_name') %>%
+  as_tibble() %>%
+  #filter(!is.na(padj),
+  #       padj < 0.05) %>%
+  mutate(enrichment = case_when(
+    log2FoldChange > 0 & padj < 0.05 ~ 'particle enriched',
+    log2FoldChange < 0 & padj < 0.05 ~ 'free-living enriched',
+    padj > 0.05 | is.na(padj) ~ 'no significant difference'))
+
+
+table(final_res$enrichment)
+#free-living enriched no significant difference         particle enriched
+#48868                   1514220                     83359
+
+
+
+col_metadata = tibble(sample = colnames(mapped_read_counts)[
+  2:ncol(mapped_read_counts)
+  ]) %>%
+  mutate(fraction = if_else(str_detect(sample, 'PA'), 'PA', 'FL'),
+         depth = str_replace(sample, '[:ALPHA:]{3}(\\d+)_\\d', '\\1'),
+         depth = as.integer(depth),
+         layer = case_when(depth == 900 ~ 'euxinic',
+                           depth >= 103 & depth <= 237 ~ 'oxycline',
+                           depth > 237 & depth < 900 ~ 'shallow.anoxic'))
+
+mapped_read_counts = mapped_read_counts %>%
+  rownames_to_column(var = 'gene_name') %>%
+  as_tibble()
+
+cs = mapped_read_counts %>%
+  #as.data.frame() %>%
+  #column_to_rownames(var = 'gene_name') %>%
+  #rownames_to_column(var = 'gene_name') %>%
+  #as_tibble() %>%
+  mutate(mag_name = str_replace(gene_name, '(MAG_\\d+)-.*', '\\1'), .before = 1)
+
+cs = cs %>%
+  mutate(
+    fl_counts = rowSums(select(., col_metadata %>%
+                                 filter(fraction == 'FL') %>%
+                                 pull(sample))),
+    pa_counts = rowSums(select(., col_metadata %>%
+                                 filter(fraction == 'PA') %>%
+                                 pull(sample)))
+  ) %>%
+  relocate(c(fl_counts, pa_counts), .after = gene_name) %>%
+  select(1:8)
+
+
+
+
+
+
+
+
+
+
+#bgc = readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/rdata/bgc_kb_5000_gene_data.rda')
+
+
+bgc_uniq = bgc %>%
+  select(mag_name, gene_name) %>%
+  distinct() %>%
+  mutate(is_biosynthetic = TRUE)
+
+
+sig_genes = res %>%
+  as.data.frame() %>%
+  rownames_to_column(var = 'gene_name') %>%
+  as_tibble() %>%
+  left_join(bgc_uniq %>%
+              select(-mag_name),
+            by = 'gene_name')
+
+#pa_sig
+sig_genes %>%
+  filter(is_biosynthetic, log2FoldChange > 0, padj <= 0.05) %>%
+  mutate(is_sig_pa_biosynthetic = TRUE) %>%
+  select(gene_name, is_sig_pa_biosynthetic)
+
+
+#fl_sig
+sig_genes %>%
+  filter(is_biosynthetic, log2FoldChange < 0, padj <= 0.05) %>%
+  mutate(is_sig_fl_biosynthetic = TRUE) %>%
+  select(gene_name, is_sig_fl_biosynthetic)
+
+
+
+
+clust_analysis = pmap_df(list(
+  list(sig_genes),
+
+  list(sig_genes %>%
+         filter(is_biosynthetic, log2FoldChange > 0, padj <= 0.05) %>%
+         mutate(is_sig_pa_biosynthetic = TRUE) %>%
+         select(gene_name, is_sig_pa_biosynthetic)),
+
+  list(sig_genes %>%
+         filter(is_biosynthetic, log2FoldChange < 0, padj <= 0.05) %>%
+         mutate(is_sig_fl_biosynthetic = TRUE) %>%
+         select(gene_name, is_sig_fl_biosynthetic)),
+
+  list(
+    cs %>% select(2:4) #%>% rename(fl_counts = 2, pa_counts = 3)#,
+    #cs %>% select(c(2, 5:6)) %>% rename(fl_counts = 2, pa_counts = 3),
+    #cs %>% select(c(2, 7:8)) %>% rename(fl_counts = 2, pa_counts = 3)
+  )
+), ~
+  ..1 %>%
+  left_join(..2, by = 'gene_name') %>%
+  left_join(..3, by = 'gene_name') %>%
+  left_join(..4, by = 'gene_name')
+)
+
+clust_data_pa = clust_analysis %>%
+  filter(is_sig_pa_biosynthetic |
+           (pa_counts > 0 & fl_counts == 0 & is_biosynthetic)
+  ) %>%
+  relocate(c(fl_counts, pa_counts, padj,
+             is_sig_pa_biosynthetic,
+             is_sig_fl_biosynthetic,
+             is_biosynthetic), .after = gene_name) %>%
+  left_join(bgc, by = 'gene_name')
+
+clust_data_fl = clust_analysis %>%
+  filter(is_sig_fl_biosynthetic |
+           (fl_counts > 0 & pa_counts == 0 & is_biosynthetic)
+  ) %>%
+  relocate(c(fl_counts, pa_counts, padj,
+             is_sig_pa_biosynthetic,
+             is_sig_fl_biosynthetic,
+             is_biosynthetic), .after = gene_name) %>%
+  left_join(bgc, by = 'gene_name')
+
+
+clust_data_pa %>% dim()
+
+clust_data_fl %>% dim()
+
+
+
+
+
+
+bgc_summary = bgc %>%
+  group_by(contig, region) %>%
+  summarize(n = n(), .groups = 'drop')
+
+
+pa_expressed = clust_data_pa %>%
+  left_join(bgc_summary, by = c('contig', 'region')) %>%
+  group_by(contig, region) %>%
+  rename(cluster_size = n) %>%
+  add_tally() %>%
+  ungroup() %>%
+  mutate(proportion_expressed = n / cluster_size)
+
+pa_expressed_summary = pa_expressed %>%
+  select(product, proportion_expressed,
+         contig, region, cluster_size, n) %>%
+  distinct()
+
+fl_expressed = clust_data_fl %>%
+  left_join(bgc_summary, by = c('contig', 'region')) %>%
+  group_by(contig, region) %>%
+  rename(cluster_size = n) %>%
+  add_tally() %>%
+  ungroup() %>%
+  mutate(proportion_expressed = n / cluster_size)
+
+
+fl_expressed_summary = fl_expressed %>%
+  select(product, proportion_expressed,
+         contig, region, cluster_size, n) %>%
+  distinct()
+
+
+####
+map_chr(ls(), ~ paste0(.x, ': ', object.size(get(.x)) %>% format(units = "Mb")))
+
+save(list = ls(), file = 'rdata/deseq2_full_analysis_with_minimap2_metaT_alignments.rdata')
+
+
+final_de_and_clust_data = pa_expressed %>%
+  bind_rows(fl_expressed)
+
+saveRDS(final_de_and_clust_data, file = 'rdata/final_de_and_uniq_expr_clust_data.rds')
+
+test_final_de = readRDS('~/Downloads/final_de_and_uniq_expr_clust_data.rds')
+
+
+
+
+#PA
+test_final_de %>%
+  filter(
+    (padj < 0.05 & log2FoldChange > 0) |
+      (pa_counts > 0 & fl_counts == 0)) %>%
+  left_join(
+    mag_table %>%
+      select(mag_name, phylum, class),
+    by = 'mag_name') %>%
+  pull(phylum) %>%
+  table() %>%
+  sort()
+# Omnitrophota, Desulfobacterota, Planctomycetota,
+# Myxococcota, Proteobacteria (Gammaproteos)
+
+# hglE-KS            arylpolyene                  T1PKS
+# 153                    175                    205
+# ladderane          ranthipeptide              NRPS-like
+# 261                    320                    334
+# RRE-containing                terpene
+# 371                    414
+
+
+
+#FL
+test_final_de %>%
+  filter(
+    (padj < 0.05 & log2FoldChange < 0) |
+      (fl_counts > 0 & pa_counts == 0)) %>%
+  left_join(
+    mag_table %>%
+      select(mag_name, phylum, class),
+    by = 'mag_name') %>%
+  pull(phylum) %>%
+  table() %>%
+  sort()
+# Proteobacteria (Alphaproteos), Omnitrophota, SAR324,
+# Desulfobacterota
+
+# T1PKS                  ladderane
+# 88                        112
+# phosphonate             RRE-containing
+# 130                        135
+# ranthipeptide                betalactone
+# 148                        283
+# NRPS-like                    terpene
+# 291                        348
+
+# 25 genes DE'd in PA w/ padj < 0.05
+# 138 genes DE'd in FL w/ padj < 0.05
+
+
+
+test_final_de %>%
+  filter(pa_counts > 0 & fl_counts == 0) %>%
+  nrow()
+
+test_final_de %>%
+  filter(fl_counts > 0 & pa_counts == 0) %>%
+  nrow()
+
+```
+
+
+## Barplots of Bacterial and Archaeal MAGs recovered
+ 
+```{r}
+# mag phlyum dists/phylum avg completeness --------------------------------
+
+heat_colors <- c(colorRampPalette(colors = 'white')(1),
+                 colorRampPalette(colors = c('#ABD9E9',
+                                             '#FEE090',
+                                             'orange',
+                                             '#D73027'))(8000))
+
+sm_summary <- sm_key %>%
+  select(mag_name, cluster, sm_class) %>%
+  distinct() %>%
+  left_join(mag_table, by = 'mag_name')
+
+# plot used
+mag_dist_plot_archaea <- mag_table %>%
+  group_by(phylum) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(x = row_number(),
+         phylum) %>%
+  left_join(mag_table %>%
+              select(phylum, domain, completeness) %>%
+              group_by(phylum) %>%
+              add_tally(mean(completeness), name = 'average_completeness') %>%
+              select(-completeness) %>%
+              ungroup() %>%
+              distinct(),
+            by = 'phylum') %>%
+  mutate(phylum = if_else(is.na(phylum), 'Unclassified', phylum)) %>%
+  mutate(phylum = as_factor(phylum)) %>%
+  filter(domain == 'Archaea') %>%
+  ggplot(aes(phylum, freq)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 65, hjust = 1, size = 8),
+        #plot.title = element_text(size = 17),
+        axis.title.x = element_text(size = 10),
+        axis.title.y = element_blank(),
+        strip.text = element_text(size = 10),
+        strip.background = element_rect(fill = 'wheat1'),
+        #legend.title = element_text(size = 16),
+        #legend.direction = 'horizontal',
+        #legend.margin = margin(c(4,15,4,4)),
+        #legend.text = element_text(size = 13),
+        axis.text.y = element_text(size = 8),
+        legend.position = 'none'
+        #legend.position = c(0.8075, 0.91),
+        #tagger.panel.tag.background = element_rect(fill = 'wheat1'),
+        #tagger.panel.tag.text = element_text(face = 'bold'),
+        #legend.background = element_rect(fill = "white",
+        #                                 color = "black")
+  ) +
+  geom_segment(aes(xend = phylum,  yend = 0), color = 'grey50') +
+  geom_point(size = 1.5,
+             aes(color = average_completeness)) +
+  geom_text(aes(label = freq, vjust = -0.65), size = 2.5) +
+  facet_grid(~ domain, scales = 'free', space = 'free') +
+  labs(x = 'Phylum',
+       y = 'Number of MAGs per phylum\n',
+       color = 'Average genome
+completeness per phylum',
+       #title = 'Taxonomic distribution of recovered high-quality MAGs (by phylum, n = 568)'
+  ) +
+  scale_color_gradientn(colors = heat_colors,
+                        breaks = seq(75, 100, by = 5),
+                        limits = c(79, 100)
+  ) +
+  scale_y_continuous(limits = c(0, 75),
+                     expand = expansion(add = c(1, 0)))# +
+#tag_facets(position = 'tl')
+
+
+
+
+
+
+
+mag_dist_plot_bacteria =
+  mag_table %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>%
+  group_by(phylum) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(x = row_number(),
+         phylum) %>%
+  left_join(mag_table %>%
+              select(phylum, domain, completeness) %>%
+              group_by(phylum) %>%
+              add_tally(mean(completeness), name = 'average_completeness') %>%
+              select(-completeness) %>%
+              ungroup() %>%
+              distinct(),
+            by = 'phylum') %>%
+  mutate(phylum = if_else(is.na(phylum), 'Unclassified', phylum)) %>%
+  mutate(phylum = as_factor(phylum)) %>%
+  filter(domain == 'Bacteria') %>%
+  ggplot(aes(phylum, freq)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 65, hjust = 1, size = 8),
+        #plot.title = element_text(size = 17),
+        axis.title = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        strip.background = element_rect(fill = 'wheat1'),
+        legend.title = element_text(size = 8),
+        legend.direction = 'horizontal',
+        legend.margin = margin(c(4,15,4,4)),
+        legend.text = element_text(size = 8),
+        axis.text.y = element_text(size = 8),
+        legend.position = c(0.71, 0.87),
+        #axis.title.y = element_blank(),
+        #tagger.panel.tag.background = element_rect(fill = 'wheat1'),
+        #tagger.panel.tag.text = element_text(face = 'bold'),
+        legend.background = element_rect(fill = "white",
+                                         color = "black")
+  ) +
+  geom_segment(aes(xend = phylum,  yend = 0), color = 'grey50') +
+  geom_point(size = 1.5,
+             aes(color = average_completeness)) +
+  geom_text(aes(label = freq, vjust = -0.65), size = 2.5) +
+  facet_grid(~ domain, scales = 'free', space = 'free') +
+  labs(x = 'Phylum',
+       y = 'Number of MAGs per phylum\n',
+       color = 'Average genome
+completeness per phylum',
+       #title = 'Taxonomic distribution of recovered high-quality MAGs (by phylum, n = 568)'
+  ) +
+  scale_color_gradientn(colors = heat_colors,
+                        breaks = seq(75, 100, by = 5),
+                        limits = c(79, 100)
+  ) +
+  scale_y_continuous(limits = c(0, 75),
+                     expand = expansion(add = c(1, 0)))
+
+
+
+mag_dist_plot = plot_grid(mag_dist_plot_bacteria, mag_dist_plot_archaea,
+                          labels = c('a', 'b'),
+                          rel_widths = c(4, 1),
+                          nrow = 1,
+                          label_size = 11.5,
+                          align = 'hv',
+                          label_x = c(0.045, 0.205)
+)
+#mag_dist_plot
+
+
+# tiff(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/mag_hq_frequency_plots_by_phylum_split.tiff',
+#      width = 7, height = 4, units = 'in',
+#      res = 300)
+# print(mag_dist_plot)
+# dev.off()
+
+
+ggsave(
+  filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/mag_hq_frequency_plots_by_phylum_split.svg',
+  width = 7,
+  height = 4,
+  units = 'in'
+)
+```
+
+
+Plot of biosynthetic cluster potential normalized by MAG phylum
+```{r}
+# BGC frequency plot by phylum --------------------------------------------
+
+highlight <- function(x, pat, color = "black", family = "") {
+  ifelse(grepl(pat, x), glue("<b style='font-family:{family}; color:{color}'>{x}</b>"), x)
+}
+
+face2 = bgc_count_data_summary %>%
+  select(phylum, domain, n_mags_in_phylum) %>%
+  distinct() %>%
+  filter(n_mags_in_phylum == 1) %>%
+  mutate(type = 'bold')
+
+#WORKS NOW - MORE PHYLA HAVE ONLY ONE MEMBER - ADJUST FOR THAT ACCORDINGLY - BOLDING THEIR LABELS ON X AXIS
+bact_final_sm_freq_plot = bgc_count_data_summary %>%
+  filter(domain == 'Bacteria') %>%
+  ggplot(aes(as_factor(phylum), norm_sm_freq,
+             fill = fct_rev(fct_infreq(product)))) +
+  geom_bar(stat = 'identity') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 70, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        legend.position = c(0.98, 0.98),
+        legend.justification = c(0.98, 0.98),
+        legend.text = element_text(size = 11),
+        legend.title = element_text(size = 12),
+        legend.background = element_blank(), panel.border =
+          element_rect(color = 'black', fill = NA),
+        legend.box.background = element_rect(color = 'black'),
+        panel.grid = element_blank(),
+        strip.text = element_text(size = 13),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'wheat1')
+  ) +
+  labs(x = '\nPhylum',
+       fill = 'Secondary metabolite class') +
+  scale_fill_manual(values = smc) +
+  facet_grid(~ domain, space = 'free', scales = 'free') +
+  scale_x_discrete(labels = function(x) highlight(x, paste0(face2$phylum, collapse = '|'), 'black')) +
+  theme(axis.text.x = element_markdown())# +
+
+
+
+
+arch_final_sm_freq_plot = bgc_count_data_summary %>%
+  filter(domain == 'Archaea') %>%
+  ggplot(aes(as_factor(phylum), norm_sm_freq,
+             fill = fct_rev(fct_infreq(product)))) +
+  geom_bar(stat = 'identity') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 70, hjust = 1),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        legend.position = 'none',
+        panel.grid = element_blank(),
+        strip.text = element_text(size = 13),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'wheat1')
+  ) +
+  labs(x = '\nPhylum',
+       fill = 'Secondary metabolite class') +
+  scale_fill_manual(values = smc) +
+  facet_grid(~ domain, space = 'free', scales = 'free') +
+  scale_x_discrete(labels = function(x) highlight(x, paste0(face2$phylum, collapse = '|'), 'black')) +
+  theme(axis.text.x = element_markdown())
+#
+
+
+
+
+# save the sm biosynthetic potential plot
+sm_freq_plot = plot_grid(bact_final_sm_freq_plot, NULL, arch_final_sm_freq_plot,
+                         labels = c('a', '', 'b'),
+                         rel_widths = c(3, 0.02, 1),
+                         nrow = 1,
+                         align = 'hv'#,
+                         #label_x = c(0.0975, 0, 0)
+)
+
+ggsave(
+  sm_freq_plot,
+  filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/sm_normalized_freq_plot_by_phylum.svg',
+  width = 7,
+  height = 7,
+  units = 'in'
+)
+```
+
+
+## Plotting antibiotic resistnace gene bar plots - genome potential and transcript expression
+
+```{r}
+
+# formatting antibiotic resistance gene data ------------------------------
+
+ar = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/antibiotic-resistance-hmm-scan-results.rda')
+load('~/Documents/cariaco-tidy-analysis/rdata-files/sm_cluster_gene_desriptive_tibbles_from_anti6_cluster_gbk_outputs_march_2022.rdata')
+# loads:
+# clust_gene_descr
+# clust_gene_summary
+
+clust_gene_summary = clust_gene_summary %>%
+  mutate(mag_name = str_replace(filename, '(MAG_\\d+)_.*', '\\1'), .before = 1) %>%
+  rename(gene_identifier = gene)
+
+ar = ar %>%
+  select(cluster_name, query_name, sequence_evalue,
+         gene_identifier, start_to_end, strand) %>%
+  filter(sequence_evalue < 1e-5) %>%
+  mutate(mag_name = str_replace(cluster_name, '(MAG_\\d+)_.*', '\\1'), .before = 1) %>%
+  left_join(clust_gene_summary, by = c('mag_name', 'gene_identifier')) %>%
+  select(-c(product, evalue, aSDomain, description)) %>%
+  mutate(gene_name = paste0('ctg', ID, '-', mag_name), .after = 1)
+
+
+# this is the finished version of the antibiotic resistance genes present in the gene clusters
+ar =
+  ar %>%
+  group_by(gene_name) %>%
+  filter(sequence_evalue == min(sequence_evalue)) %>%
+  ungroup() %>%
+  group_by(mag_name, gene_name, contig) %>%
+  summarize(gene_fns = paste0(query_name, collapse = ';'),
+            start_end_summary = paste0(start_to_end, collapse = ';'),
+            .groups = 'drop') %>%
+  left_join(mag_table %>%
+              select(mag_name, domain, phylum),
+            by = 'mag_name') %>%
+  left_join(bnh_summary %>%
+              select(contig, is_hybrid, product),
+            by = 'contig')
+
+#remove data from clusters that are not greater than 10kb in length
+ar = ar %>%
+  filter(!is.na(product))
+
+#import resfams metadata
+resfams_metadata = read_csv('~/Downloads/180102_resfams_metadata_updated_v1.2.2.csv') %>%
+  select(-c(4:5)) %>%
+  rename(gene_fns = 2,
+         binned_gene_fns = 6) %>%
+  mutate(gene_fns = case_when(
+    gene_fns == 'RNDAntibioticEffluxPump' ~ 'RND_efflux',
+    gene_fns == 'MFSAntibioticEffluxPump' ~ 'MFS_efflux',
+    gene_fns == 'Tetracycline_Resistance_Ribosomal_Protection_Protein' ~ 'tet_ribosomoal_protect',
+    gene_fns == 'Chloramphenicol_Acetyltransferase_CAT' ~ 'Chlor_Acetyltrans_CAT',
+    gene_fns == 'ABCAntibioticEffluxPump' ~ 'ABC_efflux',
+    gene_fns == 'Chloramphenicol_Phosphotransferase_CPT' ~ 'Chlor_Phospho_CPT',
+    gene_fns == 'FluoroquinoloneResistantDNATopoisomerase' ~ 'Fluor_Res_DNA_Topo',
+    gene_fns == 'Erm23SRibosomalRNAMethyltransferase' ~ 'Erm23S_rRNA_methyltrans',
+    gene_fns == 'Cfr23RibosomalRNAMethyltransferase' ~ 'Cfr23_rRNA_methyltrans',
+    gene_fns == 'QuinoloneResistanceProteinQnr' ~ 'Qnr',
+    gene_fns == 'MacrolideGlycosyltransfer' ~ 'macrolide_glycosyl',
+    gene_fns == 'Tetracycline_Resistance_MFS_Efflux_Pump' ~ 'tet_MFS_efflux',
+    gene_fns == 'CPT' ~ 'Chlor_Phospho_CPT',
+    gene_fns == 'Chloramphenicol_Efflux_Pump' ~ 'Chlor_Efflux_Pump',
+    gene_fns == '16S_Ribosomal_RNA_Methyltransferase' ~ '16S_rRNA_methyltrans',
+    TRUE ~ gene_fns
+  ))
+
+
+
+ar_final = ar %>%
+  mutate(gene_fns = str_replace(gene_fns, '(.*);.*', '\\1')) %>%
+  group_by(gene_fns) %>%
+  add_tally() %>%
+  left_join(
+    resfams_metadata %>%
+      select(2, 6) %>%
+      rename(gene_fns = 1,
+             binned_gene_fns = 2),
+    by = 'gene_fns') %>%
+  ungroup() %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = TRUE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product
+  ))
+
+ar_gene_suppl_table = ar_final %>%
+  separate(
+    start_end_summary,
+    into = c('start_position_on_contig', 'end_position_on_contig'),
+    sep = ':') %>%
+  rename(
+    hmm_annotation = gene_fns,
+    resfam_functional_category = binned_gene_fns,
+    from_hybrid_cluster = is_hybrid) %>%
+  select(-n) %>%
+  relocate(resfam_functional_category, .after = hmm_annotation) %>%
+  relocate(c(domain, phylum), .after = mag_name)
+
+vroom::vroom_write(ar_gene_suppl_table, file = 'stables/antibiotic_resistance_genes_metadata_suppl_table.tsv')
+
+
+# plotting ----------------------------------------------------------------
+
+total_ar_plot =
+  ar %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>%
+  mutate(gene_fns = str_replace(gene_fns, '(.*);.*', '\\1')) %>%
+  left_join(resfams_metadata %>%
+              select(gene_fns, binned_gene_fns),
+            by = 'gene_fns') %>%
+  mutate(product = case_when(
+    str_detect(product, regex('hybrid', ignore_case = FALSE)) ~ 'Hybrid cluster',
+    product == 'Other' ~ 'Other cluster*',
+    TRUE ~ product)) %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(group = 'Antibiotic resistance genes'
+         #'Total antibiotic resistance gene count by biosynthetic clusters class'
+  ) %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  select(binned_gene_fns, product, group, number) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns
+  )) %>%
+
+
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(product))
+  )) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  theme(
+    axis.ticks.y = element_blank(),
+    panel.grid = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10),
+    strip.background = element_rect(fill = "wheat1"),
+    legend.position = c(0.99, 0.975),
+    strip.text = element_text(size = 11),
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8),
+    legend.justification = c(1, 0.99),
+    legend.background = element_blank(),
+    panel.border = element_rect(color = 'black', fill = NA),
+    legend.box.background = element_rect(color = 'black'),
+    #legend.position = 'none'  ## removes it
+  ) +
+  labs(y = 'Number of genes\n', x = '\nTotal genes\n',
+       fill = 'Biosynthetic cluster class') +
+  #scale_y_continuous(breaks = seq(0, 600, by = 50)) +
+  scale_fill_manual(values = smc_palette) +
+  guides(fill = guide_legend(ncol = 3)) +
+  facet_wrap(~ group, scales = 'free') +
+  scale_x_continuous(breaks = seq(0, 600, by = 150))
+
+#total_ar_plot
+
+
+
+
+
+
+
+
+
+
+
+
+pa_final_antibiotic_expr_plot = pa_ar_expr_plot$data %>%
+  mutate(mag_name = str_replace(gene_name, '.*-(MAG_\\d+)', '\\1')) %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>%
+  select(-mag_name) %>%
+  select(binned_gene_fns, product) %>%
+  mutate(group = 'Particle-associated'
+         #'Particle-associated total antibiotic resistance transcript expression'
+  ) %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other Efflux|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns
+  )) %>%
+
+
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 11),
+    axis.text.x = element_text(size = 10),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    legend.position = 'none',
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts'
+  )
+
+
+
+
+fl_final_antibiotic_expr_plot =
+  fl_ar_expr_plot$data %>%
+  mutate(mag_name = str_replace(gene_name, '.*-(MAG_\\d+)', '\\1')) %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>%
+  select(-mag_name) %>%
+  select(binned_gene_fns, product) %>%
+  mutate(group = 'Free-living'
+         #'Free-living total antibiotic resistance transcript expression'
+  ) %>%
+  group_by(binned_gene_fns, product, group) %>%
+  mutate(number = n()) %>%
+  ungroup() %>%
+  arrange(binned_gene_fns, product) %>%
+  distinct() %>%
+  filter(
+    !str_detect(binned_gene_fns,
+                'Nucleotidyltransferase|Other Efflux|Quinolone Resistance|Acetyltransferase|Phosphotransferase')) %>%
+  mutate(binned_gene_fns = if_else(
+    binned_gene_fns == 'Gylcopeptide Resistance',
+    'Glycopeptide Resistance', binned_gene_fns
+  )) %>%
+
+  ggplot(aes(
+    y = factor(binned_gene_fns,
+               levels = rev(c('Antibiotic Inactivation', 'Target Protection',
+                              'Glycopeptide Resistance', 'Beta-Lactamase',
+                              'MFS Transporter', 'rRNA Methyltransferase',
+                              'RND Antibiotic Efflux', 'ABC Transporter',
+                              'Gene Modulating Resistance'))),
+    x = number,
+    fill = fct_rev(fct_infreq(factor(product, exclude = NULL))))) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  theme_bw() +
+  facet_wrap(~ group) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(size = 10),
+    axis.text.x = element_text(size = 10),
+    axis.title.y = element_blank(),
+    #axis.text.y = element_blank(),
+    #legend.position = 'none',
+    strip.background = element_rect(fill = "wheat1"),
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = 'none'
+    # legend.position = c(0.695, 0.98),
+    # legend.justification = c(1, 0.99),
+    # legend.background = element_blank(),
+    # panel.border = element_rect(color = 'black', fill = NA),
+    # legend.box.background = element_rect(color = 'black'),
+  ) +
+  scale_fill_manual(values = c(smc_palette), na.value = 'white') +
+  labs(
+    fill = 'Secondary metabolite class',
+    y = 'Antibiotic resistance type',
+    x = '\nTotal transcripts'
+  ) +
+  #scale_x_continuous(limits = c(0, 75)) +
+  scale_x_reverse(limits = c(75, 0))
+
+
+#fl_final_antibiotic_expr_plot
+
+
+final_transcript_plotgrid = plot_grid(
+  fl_final_antibiotic_expr_plot,
+  pa_final_antibiotic_expr_plot,
+  nrow = 1,
+  rel_widths = c(0.6, 0.4)
+)
+
+
+FINAL_ANTIBIOTIC_RESIST_PLOT =
+  plot_grid(total_ar_plot,
+            final_transcript_plotgrid,
+            ncol = 1,
+            labels = 'auto',
+            rel_heights = c(0.51, 0.49))
+
+
+# ggsave(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/FINAL_ABSOLUTELY_ANTIBIOTIC_RESISTANCE_PLOT.tiff',
+#        plot = FINAL_ANTIBIOTIC_RESIST_PLOT,
+#        width = 7, height = 5.75, units = 'in')
+
+
+
+# ggsave(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/FINAL_ABSOLUTELY_ANTIBIOTIC_RESISTANCE_PLOT.svg',
+#        plot = FINAL_ANTIBIOTIC_RESIST_PLOT,
+#        width = 7, height = 5.75, units = 'in')
+
+```
+
+
+## Processing and of RNA-Seq mapping results for biosynthetic transcript expression plotting, and creating a heatmap plot of results
+
+```{r}
+mm2_final = readRDS('rdata-files/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
+
+
+metaT_col_order = tibble(
+  sample_name = colnames(mm2_final)[2:ncol(mm2_final)],
+  fraction = if_else(
+    str_detect(sample_name, 'PA'), 'PA', 'FL'),
+  depth = str_replace(
+    sample_name, '.*(\\d{3}).*', '\\1')
+) %>%
+  arrange(desc(fraction), depth) %>%
+  pull(sample_name)
+
+
+
+# create color specifications for column annotations
+anno_colors = list(
+  Fraction = c(
+    'PA' = 'darkgreen',
+    'FL' = 'darkseagreen2'),
+  Layer = c(
+    'Oxycline' = 'darkslategray3', #'wheat2',
+    'Shallow anoxic' = 'gold',# 'khaki2',
+    'Euxinic' =  'sienna3'),
+
+  Season = c('May' = 'slategray',
+             'November' = 'slategray1'),
+
+  `Depth (m)` = c(
+    '103' = 'grey90',
+    '148' = 'grey85',
+    '198' = 'grey80',
+    '200' = 'grey75',
+    '234' = 'grey70',
+    '237' = 'grey65',
+    '247' = 'grey60',
+    '267' = 'grey55',
+    '295' = 'grey50',
+    '314' = 'grey45',
+    '900' = 'grey20'
+  )
+)
+
+
+
+# final plot used in manuscript
+mm2_final_mod =
+  mm2_final %>%
+  mutate(group_col = str_replace(
+    gene_name, '(MAG_\\d+-ctg\\d+)_.*', '\\1'), .before = 1) %>%
+  relocate(group_col) %>%
+  mutate(rowSums = rowSums(.[3:ncol(.)]), .after = 1) %>%
+  mutate(rs_pa = rowSums(.[str_detect(colnames(.), 'PA')]),
+         rs_fl = rowSums(.[str_detect(colnames(.), 'FL')])) %>%
+  relocate(c(rs_pa, rs_fl), .after = 1) %>%
+  filter(
+    rowSums > 19
+  ) %>%
+  group_by(group_col) %>%
+  mutate(group_PA_rowSums = sum(rs_pa), .after = 1) %>%
+  mutate(group_FL_rowSums = sum(rs_fl), .after = 1) %>%
+  mutate(sorting_col = if_else(
+    group_PA_rowSums > group_FL_rowSums, 'PA', 'FL'), .after = group_PA_rowSums) %>%
+  ungroup() %>%
+  arrange(desc(group_PA_rowSums), sorting_col) %>%
+  select(-c(rowSums, group_PA_rowSums, group_FL_rowSums,
+            rs_pa, rs_fl, group_col, sorting_col)) %>%
+  column_to_rownames(var = 'gene_name') %>%
+  #relocate(all_of(pheat_col_order)) %>%
+  relocate(all_of(metaT_col_order))
+
+
+
+mm2_final_mod =
+  mm2_final_mod %>%
+
+  mutate(pa_sums = rowSums(.[str_detect(colnames(.), 'PA')]),
+         fl_sums = rowSums(.[str_detect(colnames(.), 'FL')]) ) %>%
+  relocate(c(pa_sums, fl_sums), .before = 1) %>%
+  #as_tibble() %>%
+  mutate(row_sorter = if_else(pa_sums > fl_sums, TRUE, FALSE), .before = 1) %>%
+  arrange(desc(row_sorter), desc(pa_sums)) %>%
+  select(-c(pa_sums, fl_sums, row_sorter)) %>%
+
+  #mutate(across(everything(), ~ expm1(.x))) %>%
+  relocate(colnames(.) %>%
+             {function(x) {
+               tbl = tibble(
+                 mpa = x[str_detect(x, 'MPA')],
+                 npa = x[str_detect(x, 'NPA')],
+                 mfl = x[str_detect(x, 'MFL')],
+                 nfl = x[str_detect(x, 'NFL')]
+               ) %>%
+                 mutate(groupper = rep(paste0('group_', seq(1, 6, by = 1)), each = 2)) %>%
+                 group_by(groupper) %>%
+                 summarize(across(everything(), ~
+                                    paste0(.x, collapse = ';')),
+                           .groups = 'drop') %>%
+                 select(-groupper)
+
+               pa = as.vector(rbind(tbl$mpa, tbl$npa))
+               fl = as.vector(rbind(tbl$mfl, tbl$nfl))
+
+               g = c(pa, fl)
+               g = str_split(g, pattern = ';') %>% unlist()
+
+               return(g)}}())
+
+
+
+metaT_row_anno = tibble(
+  gene_name = rownames(mm2_final_mod),
+  mag_name = str_replace(gene_name, '(MAG_\\d+)-.*', '\\1')
+) %>%
+  column_to_rownames(var = 'gene_name')
+
+
+
+# create column annotation information object
+col_anno = tibble(
+  sample_name = colnames(mm2_final_mod),
+  Depth = str_replace(sample_name, '.*(\\d{3}).*', '\\1'),
+  Fraction = if_else(str_detect(sample_name, 'PA'), 'PA', 'FL'),
+  Season = if_else(str_detect(sample_name, 'M'), 'May', 'November')
+) %>%
+  mutate(Depth = as.integer(Depth),
+         Layer = case_when(
+           Depth < 247 ~ 'Oxycline',
+           Depth >= 247 & Depth < 900 ~ 'Shallow anoxic',
+           TRUE ~ 'Euxinic'
+         )) %>%
+  mutate(Depth = as.character(Depth)) %>%
+  rename(`Depth (m)` = Depth) %>%
+  column_to_rownames(var = 'sample_name')
+
+
+
+
+
+
+mm2_final_plot =
+  mm2_final_mod %>%
+  rownames_to_column(var = 'gene_name') %>%
+  mutate(mag_name = str_replace(
+    gene_name, '(MAG_\\d+)-.*', '\\1')) %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>%
+  select(-mag_name) %>%
+  column_to_rownames(var = 'gene_name') %>%
+  as.matrix() %>%
+
+  ComplexHeatmap::pheatmap(
+    name = 'Transcripts per million',
+    show_colnames = FALSE,
+    annotation_col = col_anno,
+    #annotation_row = metaT_row_anno,
+    annotation_colors = anno_colors,
+    gaps_col = 24,
+    clustering_method = 'mcquitty',
+    #cluster_rows = FALSE,
+    cluster_cols = FALSE,
+    show_rownames = FALSE,
+    border_color = 'grey60',
+    treeheight_row = 0,
+    treeheight_col = 0,
+    color =
+      c(#colorRampPalette(colors = 'white')(100),
+        colorRampPalette(colors = c(
+          'gray98',
+          '#aae6fa',
+          '#c9e6f0',
+          '#f7e96d',
+          '#f7e43b',
+          'goldenrod1',
+          'orange',
+          '#ff6a00',
+          '#D73027',
+          'purple4'))(1000)
+      ),
+    legend_breaks = seq(0, 6, by = 2),
+    legend_labels = gt_render(c(
+      '0',
+      '6.39 x 10^0',
+      '5.36 x 10^1',
+      '4.02 x 10^2')),
+    show_row_dend = FALSE,
+    show_column_dend = FALSE
+  )
+
+
+
+mm2_final_plot = ComplexHeatmap::draw(
+  mm2_final_plot,
+  merge_legend = TRUE,
+  heatmap_legend_side = 'right',
+  annotation_legend_side = 'right'
+)
+
+
+# tiff(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/final_main_paper_transcript_heatmap.tiff',
+#      width = 7,
+#      height = 10,
+#      units = 'in',
+#      res = 300)
+# mm2_final_plot
+# dev.off()
+
+
+
+svg(filename = '~/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/final_main_paper_transcript_heatmap.svg',
+    width = 7,
+    height = 10#,
+    #units = 'in',
+    #res = 300
+)
+mm2_final_plot
+dev.off()
+
+```
+
+
+## Pie chart of recovered BGCs >= 10kb in total length; process raw results, shape data into format for pie chart creation; create and save the pie chart
+
+```{r}
+bgc_10k_kb = bgc_summary %>%
+  mutate(size = end - start, .after = contig) %>%
+  filter(size >= 10000)
+
+bgc_count_data = bgc_10k_kb %>%
+  mutate(mag_name = str_replace(contig, '(MAG_\\d+)_.*', '\\1'), .before = contig) %>%
+  filter(!mag_name %in% c('MAG_1507', 'MAG_769', 'MAG_983')) %>% # remove MAGs that are from laboratory contamination
+  select(-mag_name) %>%
+  mutate(clust = paste0('clust_', 1:n()), .before = size) %>%
+  group_by(contig) %>%
+  group_split() %>%
+  map_dfr(~ .x %>%
+            mutate(ID.match = map2(
+              1:length(start), list(.), ~
+                .y %>%
+                filter(
+                  start > start[.x] & start < end[.x] | # start of the BGC is greater than your start, and less than your end
+                    start < start[.x] & end > start[.x] | # start of the BGC is less than your start, and end is greater than your start
+                    start == start[.x] & start < end[.x]) %>% # start of the BGC is equal to your start, and less than your end
+                pull(clust)),
+            .before = start)) %>%
+  group_by(contig) %>%
+  mutate(concat = list(unlist(ID.match)), .after = ID.match) %>%
+  mutate(concat = map(concat, ~ unique(.x[duplicated(.x)]))) %>%
+  mutate(length_concat = length(concat), .after = concat) %>%
+  mutate(n = n(), .after = length_concat) %>%
+  ungroup()
+
+
+all(bgc_count_data$length_concat == bgc_count_data$n) # TRUE; all contigs w/ multiple BGCs have some level of overlap amongst them; can classify these all as 'hybrid clusters' of various sorts
+
+bgc_count_data = bgc_count_data %>%
+  select(-c(ID.match, concat, length_concat)) %>%
+  group_by(contig) %>%
+  mutate(is_hybrid = if_else(n() > 1, TRUE, FALSE), .after = contig)
+
+
+bgc_count_data_summary = bgc_count_data %>%
+  ungroup() %>%
+  select(-detection_rule) %>%
+  mutate(product = str_replace(product, '-like', ''),
+         product = str_replace(product, '.*PKS', 'PKS')) %>%
+  arrange(contig, product) %>%
+  group_by(contig, is_hybrid) %>%
+  select(-c(filename, filepath)) %>%
+  summarize(across(everything(), ~ paste0(.x, collapse = ';')), .groups = 'drop') %>%
+  mutate(product = if_else(
+    str_detect(product, ';'), str_replace(product, '(.*)', '\\1 hybrid'), product),
+    product = str_replace_all(product, ';', '-')
+  )
+
+bgc_count_data_summary = bgc_count_data_summary %>%
+  mutate(
+    product = case_when(
+      !is_hybrid & str_detect(product, 'lanthipeptide|RRE-containing|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides') ~ 'RiPP',
+      !is_hybrid & str_detect(product, 'lactone') ~ 'Lactone',
+      !is_hybrid & str_detect(product, 'acyl_amino_acids|nucleoside|PBDE|indole|siderophore|resorcinol|ectoine|NAPAA|CDPS|LAP|redox-cofactor') ~ 'other',
+      !is_hybrid & str_detect(product, 'hglE-KS') ~ 'PKS',
+      !is_hybrid & str_detect(product, 'arylpolyene') ~ 'Aryl polyene',
+      !is_hybrid & str_detect(product, 'redox-cofactor') ~ 'Redox-cofactor',
+      #
+      is_hybrid & str_detect(product, 'NRPS') & str_detect(product, 'PKS|hglE-KS') ~ 'NRPS-PKS hybrid',
+      is_hybrid & str_detect(product, 'NRPS') & !str_detect(product, 'PKS|hglE-KS|lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') ~ 'NRPS hybrid',
+      is_hybrid & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'PKS|NRPS|hglE-KS') ~ 'RiPP hybrid',
+      is_hybrid & str_detect(product, 'PKS|hglE-KS') & !str_detect(product, 'NRPS|lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') ~ 'PKS hybrid',
+      is_hybrid & str_detect(product, 'NRPS') & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'PKS|hglE-KS') ~ 'NRPS-RiPP hybrid',
+      is_hybrid & str_detect(product, 'PKS|hglE-KS') & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'NRPS') ~ 'PKS-RiPP hybrid',
+      is_hybrid & str_detect(product, 'terpene') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS') ~ 'Terpene hybrid',
+      is_hybrid & str_detect(product, 'ladderane') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Ladderane hybrid',
+      is_hybrid & str_detect(product, 'arylpolyene') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Aryl polyene hybrid',
+      is_hybrid & str_detect(product, 'lactone') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Lactone hybrid',
+      is_hybrid & str_detect(product, 'CDPS') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Other hybrid',
+      #
+      TRUE ~ product
+    )) %>%
+  mutate(product = if_else(str_detect(product, '^[:lower:]'), str_to_title(product), product))
+
+
+bgc_count_data_summary = bgc_count_data_summary %>%
+  mutate(mag_name = str_replace(contig, '(MAG_\\d+)_\\d+', '\\1'), .before = contig) %>% #create mag name col
+  left_join(mag_table %>% select(mag_name, domain, phylum), by = 'mag_name') %>% # add phylum, domain cols
+  relocate(c(domain, phylum), .after = 1) %>% # relocate cols
+  select(c(phylum, domain, product)) %>% # select some cols
+  mutate(n_product_in_phylum = 1,
+         #sm_class = product,
+         product = if_else(str_detect(product, 'hybrid'), 'Hybrid cluster', product)) %>% # edit product col, add sum col, sm class
+  group_by(phylum, domain, product) %>%
+  summarize(n_product_in_phylum = sum(n_product_in_phylum), .groups = 'drop') %>% # sum up each type of bgc in each phylum
+  left_join(mag_table %>%
+              select(phylum) %>%
+              group_by(phylum) %>%
+              summarize(n_mags_in_phylum = n()),
+            by = 'phylum') %>% # join col that says how many MAGs are in each phylum
+  mutate(norm_sm_freq = n_product_in_phylum / n_mags_in_phylum, # divide #bgc / # mag per phylum for each bgc per phylum
+         product = if_else(product == 'Other', 'Other cluster*', product)) %>%
+  #
+  group_by(phylum) %>%
+  add_tally(sum(norm_sm_freq), name = 'total_sm_freq') %>%
+  ungroup() %>%
+  arrange(desc(total_sm_freq), phylum) %>%
+  mutate(phylum = if_else(is.na(phylum), 'Unclassified', phylum))
+
+
+
+
+
+# Pie chart of Cariaco MAG BGCs groupped by class -------------------------
+
+final_pie =
+  bgc_count_data_summary %>%
+  mutate(product = if_else(product == 'PKS', 'Polyketide', product)) %>%
+  select(product, n_product_in_phylum) %>%
+  group_by(product) %>%
+  summarize(n_product_in_phylum = sum(n_product_in_phylum)) %>%
+  left_join(
+    tibble(
+      product = names(smc_palette),
+      color = unname(smc_palette)),
+    by = 'product')
+
+
+library(plotly) # load plotly for plotting
+
+# create the pie chart and save it
+final_bgc_pie = plot_ly(final_pie,
+                  labels = ~product,
+                  values = ~n_product_in_phylum,
+                  type = 'pie',
+                  textposition = 'inside',
+                  textinfo = 'label+percent+value',
+                  insidetextfont = list(color = '#FFFFFF'),
+                  text = ~n_product_in_phylum,
+                  marker = list(colors = ~color,
+                                line = list(
+                                  color = '#FFFFFF',
+                                  width = 1)),
+                  showlegend = FALSE) %>%
+  layout(xaxis = list(
+    showgrid = FALSE,
+    zeroline = FALSE,
+    showticklabels = FALSE),
+    yaxis = list(
+      showgrid = FALSE,
+      zeroline = FALSE,
+      showticklabels = FALSE))
+
+save_image(final_bgc_pie,
+           file = '/Users/dmcgrath/Documents/cariaco-tidy-analysis/FINAL_FIGURES_DIR/LAST_bgc_dist_pie_chart.svg',
+           width = 600,
+           height = 600,
+           scale = 20)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
