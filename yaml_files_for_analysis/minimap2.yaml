@@ -1,0 +1,18 @@
+name: minimap2
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+  - ursky
+  - r
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - k8=0.2.5=hd03093a_2
+  - libgcc-ng=11.2.0=h1234567_0
+  - libgomp=11.2.0=h1234567_0
+  - libstdcxx-ng=11.2.0=h1234567_0
+  - libzlib=1.2.11=h166bdaf_1014
+  - minimap2=2.24=h7132678_1
+  - zlib=1.2.11=h166bdaf_1014
+prefix: /vortexfs1/home/dgellermcgrath/.conda/envs/minimap2
