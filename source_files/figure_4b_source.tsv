@@ -1,0 +1,109 @@
+description	product	group	number	n
+AMP-binding domain	Lactone	Free-living	38	97
+AMP-binding domain	Hybrid cluster	Free-living	25	97
+AMP-binding domain	NRPS	Free-living	24	97
+AMP-binding domain	Polyketide	Free-living	3	97
+AMP-binding domain	Terpene	Free-living	2	97
+AMP-binding domain	Phosphonate	Free-living	1	97
+AMP-binding domain	RiPP	Free-living	4	97
+Beta-ketoacyl synthase domain	Hybrid cluster	Free-living	42	77
+Beta-ketoacyl synthase domain	Polyketide	Free-living	13	77
+Beta-ketoacyl synthase domain	Aryl polyene	Free-living	9	77
+Beta-ketoacyl synthase domain	Ladderane	Free-living	12	77
+Beta-ketoacyl synthase domain	Other cluster*	Free-living	1	77
+Radical SAM domain	RiPP	Free-living	26	61
+Radical SAM domain	Terpene	Free-living	3	61
+Radical SAM domain	Phosphonate	Free-living	4	61
+Radical SAM domain	Polyketide	Free-living	3	61
+Radical SAM domain	Hybrid cluster	Free-living	13	61
+Radical SAM domain	Aryl polyene	Free-living	3	61
+Radical SAM domain	NRPS	Free-living	5	61
+Radical SAM domain	Ladderane	Free-living	1	61
+Radical SAM domain	Lactone	Free-living	2	61
+Radical SAM domain	Other cluster*	Free-living	1	61
+Phosphopantetheine attachment site	Hybrid cluster	Free-living	24	53
+Phosphopantetheine attachment site	Aryl polyene	Free-living	2	53
+Phosphopantetheine attachment site	NRPS	Free-living	13	53
+Phosphopantetheine attachment site	Polyketide	Free-living	9	53
+Phosphopantetheine attachment site	Ladderane	Free-living	3	53
+Phosphopantetheine attachment site	Other cluster*	Free-living	2	53
+Squalene-hopene cyclase domain	Terpene	Free-living	31	43
+ABC transporter	Hybrid cluster	Free-living	7	43
+ABC transporter	NRPS	Free-living	5	43
+ABC transporter	Aryl polyene	Free-living	1	43
+ABC transporter	RiPP	Free-living	12	43
+ABC transporter	Lactone	Free-living	11	43
+ABC transporter	Terpene	Free-living	1	43
+ABC transporter	Other cluster*	Free-living	4	43
+ABC transporter	Phosphonate	Free-living	1	43
+Squalene-hopene cyclase domain	Hybrid cluster	Free-living	12	43
+ABC transporter	Polyketide	Free-living	1	43
+Tetratricopeptide repeat	Hybrid cluster	Free-living	5	31
+Tetratricopeptide repeat	RiPP	Free-living	9	31
+Tetratricopeptide repeat	NRPS	Free-living	15	31
+Tetratricopeptide repeat	Terpene	Free-living	2	31
+RiPP Recognition Element protein	RiPP	Free-living	19	27
+RiPP Recognition Element protein	Hybrid cluster	Free-living	7	27
+RiPP Recognition Element protein	Other cluster*	Free-living	1	27
+Response regulator receiver domain	RiPP	Free-living	3	26
+Response regulator receiver domain	Other cluster*	Free-living	3	26
+Response regulator receiver domain	Terpene	Free-living	4	26
+Response regulator receiver domain	Hybrid cluster	Free-living	2	26
+Response regulator receiver domain	NRPS	Free-living	3	26
+Response regulator receiver domain	Lactone	Free-living	7	26
+Response regulator receiver domain	Polyketide	Free-living	1	26
+Response regulator receiver domain	Ladderane	Free-living	3	26
+B12 binding domain	Phosphonate	Free-living	3	22
+B12 binding domain	Terpene	Free-living	1	22
+B12 binding domain	Polyketide	Free-living	3	22
+B12 binding domain	Aryl polyene	Free-living	4	22
+B12 binding domain	RiPP	Free-living	3	22
+B12 binding domain	Hybrid cluster	Free-living	5	22
+B12 binding domain	Ladderane	Free-living	1	22
+B12 binding domain	Lactone	Free-living	2	22
+Glycosyl transferase	Other cluster*	Free-living	2	20
+Glycosyl transferase	NRPS	Free-living	1	20
+Glycosyl transferase	Hybrid cluster	Free-living	8	20
+ATPase	Hybrid cluster	Free-living	1	20
+ATPase	Terpene	Free-living	3	20
+ATPase	NRPS	Free-living	5	20
+Glycosyl transferase	RiPP	Free-living	6	20
+ATPase	Ladderane	Free-living	3	20
+ATPase	Lactone	Free-living	5	20
+Glycosyl transferase	Phosphonate	Free-living	1	20
+Glycosyl transferase	Polyketide	Free-living	1	20
+ATPase	Polyketide	Free-living	2	20
+ATPase	Other cluster*	Free-living	1	20
+Glycosyl transferase	Aryl polyene	Free-living	1	20
+His Kinase A (phospho-acceptor) domain	Hybrid cluster	Free-living	2	18
+PqqD-like domain	RiPP	Free-living	15	18
+His Kinase A (phospho-acceptor) domain	Terpene	Free-living	3	18
+His Kinase A (phospho-acceptor) domain	Ladderane	Free-living	3	18
+His Kinase A (phospho-acceptor) domain	NRPS	Free-living	4	18
+His Kinase A (phospho-acceptor) domain	Lactone	Free-living	4	18
+PqqD-like domain	Hybrid cluster	Free-living	2	18
+His Kinase A (phospho-acceptor) domain	Polyketide	Free-living	2	18
+PqqD-like domain	Other cluster*	Free-living	1	18
+Methyltransferase domain	Hybrid cluster	Free-living	6	17
+Methyltransferase domain	RiPP	Free-living	3	17
+Methyltransferase domain	Terpene	Free-living	1	17
+Methyltransferase domain	Phosphonate	Free-living	3	17
+Methyltransferase domain	Polyketide	Free-living	1	17
+Methyltransferase domain	Aryl polyene	Free-living	1	17
+Methyltransferase domain	Other cluster*	Free-living	2	17
+Iron-sulfur cluster-binding domain	RiPP	Free-living	13	16
+Iron-sulfur cluster-binding domain	Hybrid cluster	Free-living	2	16
+Iron-sulfur cluster-binding domain	NRPS	Free-living	1	16
+Acyl transferase domain	Hybrid cluster	Free-living	3	10
+Acyl transferase domain	Polyketide	Free-living	5	10
+Acyl transferase domain	Ladderane	Free-living	2	10
+FAD/FMN binding domain	RiPP	Free-living	1	8
+Putative metal-binding motif	Hybrid cluster	Free-living	4	8
+Putative metal-binding motif	Polyketide	Free-living	4	8
+FAD/FMN binding domain	Lactone	Free-living	3	8
+FAD/FMN binding domain	NRPS	Free-living	2	8
+FAD/FMN binding domain	Terpene	Free-living	1	8
+FAD/FMN binding domain	Hybrid cluster	Free-living	1	8
+FAD/FMN-dependent oxidoreductase	Aryl polyene	Free-living	3	6
+FAD/FMN-dependent oxidoreductase	Terpene	Free-living	2	6
+FAD/FMN-dependent oxidoreductase	Other cluster*	Free-living	1	6

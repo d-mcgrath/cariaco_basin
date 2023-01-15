@@ -1,0 +1,164 @@
+phylum	domain	product	n_product_in_phylum	n_mags_in_phylum	norm_sm_freq	total_sm_freq
+KSB1	Bacteria	Aryl polyene	1	1	1	8
+KSB1	Bacteria	Lactone	2	1	2	8
+KSB1	Bacteria	NRPS	2	1	2	8
+KSB1	Bacteria	PKS	1	1	1	8
+KSB1	Bacteria	RiPP	2	1	2	8
+Myxococcota	Bacteria	Aryl polyene	20	33	0.606060606	5.393939394
+Myxococcota	Bacteria	Hybrid cluster	21	33	0.636363636	5.393939394
+Myxococcota	Bacteria	Lactone	2	33	0.060606061	5.393939394
+Myxococcota	Bacteria	Ladderane	6	33	0.181818182	5.393939394
+Myxococcota	Bacteria	NRPS	15	33	0.454545455	5.393939394
+Myxococcota	Bacteria	Other cluster*	4	33	0.121212121	5.393939394
+Myxococcota	Bacteria	Phosphonate	4	33	0.121212121	5.393939394
+Myxococcota	Bacteria	PKS	46	33	1.393939394	5.393939394
+Myxococcota	Bacteria	RiPP	54	33	1.636363636	5.393939394
+Myxococcota	Bacteria	Terpene	6	33	0.181818182	5.393939394
+SAR324	Bacteria	Aryl polyene	1	5	0.2	5.2
+SAR324	Bacteria	Hybrid cluster	6	5	1.2	5.2
+SAR324	Bacteria	Lactone	9	5	1.8	5.2
+SAR324	Bacteria	NRPS	3	5	0.6	5.2
+SAR324	Bacteria	Phosphonate	2	5	0.4	5.2
+SAR324	Bacteria	PKS	4	5	0.8	5.2
+SAR324	Bacteria	RiPP	1	5	0.2	5.2
+Verrucomicrobiota	Bacteria	Aryl polyene	8	16	0.5	4.6875
+Verrucomicrobiota	Bacteria	Hybrid cluster	7	16	0.4375	4.6875
+Verrucomicrobiota	Bacteria	Lactone	2	16	0.125	4.6875
+Verrucomicrobiota	Bacteria	Ladderane	4	16	0.25	4.6875
+Verrucomicrobiota	Bacteria	NRPS	3	16	0.1875	4.6875
+Verrucomicrobiota	Bacteria	Other cluster*	6	16	0.375	4.6875
+Verrucomicrobiota	Bacteria	Phosphonate	1	16	0.0625	4.6875
+Verrucomicrobiota	Bacteria	PKS	3	16	0.1875	4.6875
+Verrucomicrobiota	Bacteria	RiPP	31	16	1.9375	4.6875
+Verrucomicrobiota	Bacteria	Terpene	10	16	0.625	4.6875
+Bdellovibrionota_B	Bacteria	Hybrid cluster	2	2	1	4.5
+Bdellovibrionota_B	Bacteria	Lactone	1	2	0.5	4.5
+Bdellovibrionota_B	Bacteria	NRPS	1	2	0.5	4.5
+Bdellovibrionota_B	Bacteria	PKS	3	2	1.5	4.5
+Bdellovibrionota_B	Bacteria	RiPP	2	2	1	4.5
+Fibrobacterota	Bacteria	Ladderane	1	1	1	4
+Fibrobacterota	Bacteria	NRPS	1	1	1	4
+Fibrobacterota	Bacteria	RiPP	1	1	1	4
+Fibrobacterota	Bacteria	Terpene	1	1	1	4
+Gemmatimonadota_A	Bacteria	RiPP	3	1	3	4
+Gemmatimonadota_A	Bacteria	Terpene	1	1	1	4
+UBP17	Bacteria	Hybrid cluster	1	1	1	4
+UBP17	Bacteria	NRPS	2	1	2	4
+UBP17	Bacteria	PKS	1	1	1	4
+Desulfobacterota	Bacteria	Aryl polyene	16	43	0.372093023	3.906976744
+Desulfobacterota	Bacteria	Hybrid cluster	28	43	0.651162791	3.906976744
+Desulfobacterota	Bacteria	Lactone	25	43	0.581395349	3.906976744
+Desulfobacterota	Bacteria	Ladderane	4	43	0.093023256	3.906976744
+Desulfobacterota	Bacteria	NRPS	7	43	0.162790698	3.906976744
+Desulfobacterota	Bacteria	Other cluster*	2	43	0.046511628	3.906976744
+Desulfobacterota	Bacteria	Phosphonate	1	43	0.023255814	3.906976744
+Desulfobacterota	Bacteria	PKS	21	43	0.488372093	3.906976744
+Desulfobacterota	Bacteria	RiPP	52	43	1.209302326	3.906976744
+Desulfobacterota	Bacteria	Terpene	12	43	0.279069767	3.906976744
+OLB16	Bacteria	NRPS	1	1	1	3
+OLB16	Bacteria	Terpene	2	1	2	3
+Poribacteria	Bacteria	Hybrid cluster	1	1	1	3
+Poribacteria	Bacteria	RiPP	2	1	2	3
+UBP3	Bacteria	Ladderane	1	1	1	3
+UBP3	Bacteria	NRPS	1	1	1	3
+UBP3	Bacteria	RiPP	1	1	1	3
+Acidobacteriota	Bacteria	Hybrid cluster	4	4	1	2.75
+Acidobacteriota	Bacteria	NRPS	1	4	0.25	2.75
+Acidobacteriota	Bacteria	PKS	1	4	0.25	2.75
+Acidobacteriota	Bacteria	RiPP	2	4	0.5	2.75
+Acidobacteriota	Bacteria	Terpene	3	4	0.75	2.75
+Proteobacteria	Bacteria	Aryl polyene	4	47	0.085106383	2.680851064
+Proteobacteria	Bacteria	Hybrid cluster	13	47	0.276595745	2.680851064
+Proteobacteria	Bacteria	Lactone	33	47	0.70212766	2.680851064
+Proteobacteria	Bacteria	NRPS	9	47	0.191489362	2.680851064
+Proteobacteria	Bacteria	Other cluster*	9	47	0.191489362	2.680851064
+Proteobacteria	Bacteria	Phosphonate	4	47	0.085106383	2.680851064
+Proteobacteria	Bacteria	PKS	4	47	0.085106383	2.680851064
+Proteobacteria	Bacteria	RiPP	26	47	0.553191489	2.680851064
+Proteobacteria	Bacteria	Terpene	24	47	0.510638298	2.680851064
+Bacteroidota	Bacteria	Hybrid cluster	4	9	0.444444444	2.666666667
+Bacteroidota	Bacteria	Lactone	2	9	0.222222222	2.666666667
+Bacteroidota	Bacteria	NRPS	1	9	0.111111111	2.666666667
+Bacteroidota	Bacteria	PKS	1	9	0.111111111	2.666666667
+Bacteroidota	Bacteria	RiPP	9	9	1	2.666666667
+Bacteroidota	Bacteria	Terpene	7	9	0.777777778	2.666666667
+Planctomycetota	Bacteria	Aryl polyene	2	65	0.030769231	2.6
+Planctomycetota	Bacteria	Hybrid cluster	13	65	0.2	2.6
+Planctomycetota	Bacteria	Lactone	2	65	0.030769231	2.6
+Planctomycetota	Bacteria	Ladderane	4	65	0.061538462	2.6
+Planctomycetota	Bacteria	NRPS	24	65	0.369230769	2.6
+Planctomycetota	Bacteria	Other cluster*	13	65	0.2	2.6
+Planctomycetota	Bacteria	Phosphonate	1	65	0.015384615	2.6
+Planctomycetota	Bacteria	PKS	12	65	0.184615385	2.6
+Planctomycetota	Bacteria	RiPP	46	65	0.707692308	2.6
+Planctomycetota	Bacteria	Terpene	52	65	0.8	2.6
+GCA-001730085	Bacteria	Ladderane	1	2	0.5	2.5
+GCA-001730085	Bacteria	NRPS	1	2	0.5	2.5
+GCA-001730085	Bacteria	Phosphonate	1	2	0.5	2.5
+GCA-001730085	Bacteria	RiPP	2	2	1	2.5
+Gemmatimonadota	Bacteria	Hybrid cluster	1	4	0.25	2.5
+Gemmatimonadota	Bacteria	Lactone	1	4	0.25	2.5
+Gemmatimonadota	Bacteria	RiPP	6	4	1.5	2.5
+Gemmatimonadota	Bacteria	Terpene	2	4	0.5	2.5
+AABM5-125-24	Bacteria	Aryl polyene	1	9	0.111111111	2.222222222
+AABM5-125-24	Bacteria	Phosphonate	1	9	0.111111111	2.222222222
+AABM5-125-24	Bacteria	PKS	1	9	0.111111111	2.222222222
+AABM5-125-24	Bacteria	RiPP	8	9	0.888888889	2.222222222
+AABM5-125-24	Bacteria	Terpene	9	9	1	2.222222222
+UBA10199	Bacteria	Hybrid cluster	1	5	0.2	2.2
+UBA10199	Bacteria	RiPP	3	5	0.6	2.2
+UBA10199	Bacteria	Terpene	7	5	1.4	2.2
+Cyanobacteria	Bacteria	Terpene	2	1	2	2
+Delongbacteria	Bacteria	RiPP	1	1	1	2
+Delongbacteria	Bacteria	Terpene	1	1	1	2
+FEN-1099	Bacteria	PKS	2	1	2	2
+Fermentibacterota	Bacteria	Lactone	1	1	1	2
+Fermentibacterota	Bacteria	RiPP	1	1	1	2
+Latescibacterota	Bacteria	Hybrid cluster	1	7	0.142857143	2
+Latescibacterota	Bacteria	Ladderane	1	7	0.142857143	2
+Latescibacterota	Bacteria	NRPS	1	7	0.142857143	2
+Latescibacterota	Bacteria	RiPP	6	7	0.857142857	2
+Latescibacterota	Bacteria	Terpene	5	7	0.714285714	2
+Nitrospinota	Bacteria	Hybrid cluster	1	2	0.5	2
+Nitrospinota	Bacteria	Terpene	3	2	1.5	2
+Omnitrophota	Bacteria	Aryl polyene	1	56	0.017857143	1.964285714
+Omnitrophota	Bacteria	Hybrid cluster	16	56	0.285714286	1.964285714
+Omnitrophota	Bacteria	Lactone	2	56	0.035714286	1.964285714
+Omnitrophota	Bacteria	Ladderane	29	56	0.517857143	1.964285714
+Omnitrophota	Bacteria	NRPS	19	56	0.339285714	1.964285714
+Omnitrophota	Bacteria	Other cluster*	1	56	0.017857143	1.964285714
+Omnitrophota	Bacteria	Phosphonate	4	56	0.071428571	1.964285714
+Omnitrophota	Bacteria	PKS	1	56	0.017857143	1.964285714
+Omnitrophota	Bacteria	RiPP	35	56	0.625	1.964285714
+Omnitrophota	Bacteria	Terpene	2	56	0.035714286	1.964285714
+Actinobacteriota	Bacteria	Hybrid cluster	1	4	0.25	1.5
+Actinobacteriota	Bacteria	NRPS	2	4	0.5	1.5
+Actinobacteriota	Bacteria	Other cluster*	2	4	0.5	1.5
+Actinobacteriota	Bacteria	Terpene	1	4	0.25	1.5
+Firmicutes	Bacteria	Hybrid cluster	3	2	1.5	1.5
+Margulisbacteria	Bacteria	NRPS	2	5	0.4	1.2
+Margulisbacteria	Bacteria	Other cluster*	2	5	0.4	1.2
+Margulisbacteria	Bacteria	RiPP	2	5	0.4	1.2
+Krumholzibacteriota	Bacteria	RiPP	12	10	1.2	1.2
+Chloroflexota	Bacteria	Hybrid cluster	1	48	0.020833333	1.104166667
+Chloroflexota	Bacteria	Lactone	8	48	0.166666667	1.104166667
+Chloroflexota	Bacteria	NRPS	6	48	0.125	1.104166667
+Chloroflexota	Bacteria	Other cluster*	4	48	0.083333333	1.104166667
+Chloroflexota	Bacteria	Phosphonate	4	48	0.083333333	1.104166667
+Chloroflexota	Bacteria	PKS	3	48	0.0625	1.104166667
+Chloroflexota	Bacteria	RiPP	4	48	0.083333333	1.104166667
+Chloroflexota	Bacteria	Terpene	23	48	0.479166667	1.104166667
+Bipolaricaulota	Bacteria	Phosphonate	1	3	0.333333333	1
+Bipolaricaulota	Bacteria	Terpene	2	3	0.666666667	1
+Eisenbacteria	Bacteria	Hybrid cluster	1	2	0.5	1
+Eisenbacteria	Bacteria	RiPP	1	2	0.5	1
+Campylobacterota	Bacteria	RiPP	1	2	0.5	0.5
+Hydrogenedentota	Bacteria	Hybrid cluster	1	2	0.5	0.5
+Unclassified	Bacteria	RiPP	1	2	0.5	0.5
+Marinisomatota	Bacteria	Other cluster*	1	17	0.058823529	0.352941176
+Marinisomatota	Bacteria	RiPP	3	17	0.176470588	0.352941176
+Marinisomatota	Bacteria	Terpene	2	17	0.117647059	0.352941176
+Cloacimonadota	Bacteria	RiPP	1	3	0.333333333	0.333333333
+Patescibacteria	Bacteria	NRPS	1	31	0.032258065	0.129032258
+Patescibacteria	Bacteria	Phosphonate	1	31	0.032258065	0.129032258
+Patescibacteria	Bacteria	RiPP	2	31	0.064516129	0.129032258

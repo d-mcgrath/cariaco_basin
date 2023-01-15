@@ -1,0 +1,164 @@
+description	product	group	number	n
+Beta-ketoacyl synthase domain	Hybrid cluster	Core and additional biosynthetic genes	349	1073
+Beta-ketoacyl synthase domain	NRPS	Core and additional biosynthetic genes	9	1073
+Beta-ketoacyl synthase domain	Polyketide	Core and additional biosynthetic genes	223	1073
+Beta-ketoacyl synthase domain	Other cluster*	Core and additional biosynthetic genes	7	1073
+Beta-ketoacyl synthase domain	Aryl polyene	Core and additional biosynthetic genes	269	1073
+Beta-ketoacyl synthase domain	Ladderane	Core and additional biosynthetic genes	216	1073
+Radical SAM domain	Polyketide	Core and additional biosynthetic genes	80	783
+Radical SAM domain	Other cluster*	Core and additional biosynthetic genes	35	783
+Radical SAM domain	Aryl polyene	Core and additional biosynthetic genes	46	783
+Radical SAM domain	RiPP	Core and additional biosynthetic genes	342	783
+Radical SAM domain	Terpene	Core and additional biosynthetic genes	67	783
+Radical SAM domain	Hybrid cluster	Core and additional biosynthetic genes	111	783
+Radical SAM domain	Phosphonate	Core and additional biosynthetic genes	35	783
+Radical SAM domain	NRPS	Core and additional biosynthetic genes	30	783
+Radical SAM domain	Ladderane	Core and additional biosynthetic genes	26	783
+Radical SAM domain	Lactone	Core and additional biosynthetic genes	11	783
+AMP-binding domain	Phosphonate	Core and additional biosynthetic genes	5	764
+AMP-binding domain	Hybrid cluster	Core and additional biosynthetic genes	272	764
+AMP-binding domain	NRPS	Core and additional biosynthetic genes	220	764
+AMP-binding domain	Polyketide	Core and additional biosynthetic genes	21	764
+AMP-binding domain	RiPP	Core and additional biosynthetic genes	21	764
+AMP-binding domain	Lactone	Core and additional biosynthetic genes	162	764
+AMP-binding domain	Aryl polyene	Core and additional biosynthetic genes	44	764
+AMP-binding domain	Terpene	Core and additional biosynthetic genes	3	764
+AMP-binding domain	Other cluster*	Core and additional biosynthetic genes	10	764
+AMP-binding domain	Ladderane	Core and additional biosynthetic genes	6	764
+Phosphopantetheine attachment site	Hybrid cluster	Core and additional biosynthetic genes	251	647
+Phosphopantetheine attachment site	NRPS	Core and additional biosynthetic genes	145	647
+Phosphopantetheine attachment site	Polyketide	Core and additional biosynthetic genes	123	647
+Phosphopantetheine attachment site	Other cluster*	Core and additional biosynthetic genes	6	647
+Phosphopantetheine attachment site	Aryl polyene	Core and additional biosynthetic genes	81	647
+Phosphopantetheine attachment site	Ladderane	Core and additional biosynthetic genes	34	647
+Phosphopantetheine attachment site	Lactone	Core and additional biosynthetic genes	7	647
+Tetratricopeptide repeat	Phosphonate	Core and additional biosynthetic genes	7	382
+Tetratricopeptide repeat	Polyketide	Core and additional biosynthetic genes	27	382
+Tetratricopeptide repeat	RiPP	Core and additional biosynthetic genes	160	382
+Tetratricopeptide repeat	Hybrid cluster	Core and additional biosynthetic genes	37	382
+Tetratricopeptide repeat	Other cluster*	Core and additional biosynthetic genes	26	382
+Tetratricopeptide repeat	NRPS	Core and additional biosynthetic genes	56	382
+Tetratricopeptide repeat	Aryl polyene	Core and additional biosynthetic genes	18	382
+Tetratricopeptide repeat	Lactone	Core and additional biosynthetic genes	11	382
+Tetratricopeptide repeat	Terpene	Core and additional biosynthetic genes	27	382
+Tetratricopeptide repeat	Ladderane	Core and additional biosynthetic genes	13	382
+ABC transporter	Phosphonate	Core and additional biosynthetic genes	8	356
+ABC transporter	Polyketide	Core and additional biosynthetic genes	31	356
+ABC transporter	Other cluster*	Core and additional biosynthetic genes	18	356
+ABC transporter	Hybrid cluster	Core and additional biosynthetic genes	60	356
+ABC transporter	Terpene	Core and additional biosynthetic genes	43	356
+ABC transporter	RiPP	Core and additional biosynthetic genes	117	356
+ABC transporter	NRPS	Core and additional biosynthetic genes	31	356
+ABC transporter	Aryl polyene	Core and additional biosynthetic genes	6	356
+ABC transporter	Lactone	Core and additional biosynthetic genes	40	356
+ABC transporter	Ladderane	Core and additional biosynthetic genes	2	356
+Response regulator receiver domain	Polyketide	Core and additional biosynthetic genes	33	350
+Response regulator receiver domain	Hybrid cluster	Core and additional biosynthetic genes	48	350
+Response regulator receiver domain	NRPS	Core and additional biosynthetic genes	45	350
+Response regulator receiver domain	Aryl polyene	Core and additional biosynthetic genes	19	350
+Response regulator receiver domain	RiPP	Core and additional biosynthetic genes	66	350
+Response regulator receiver domain	Terpene	Core and additional biosynthetic genes	45	350
+Response regulator receiver domain	Ladderane	Core and additional biosynthetic genes	50	350
+Response regulator receiver domain	Other cluster*	Core and additional biosynthetic genes	12	350
+Response regulator receiver domain	Lactone	Core and additional biosynthetic genes	24	350
+Response regulator receiver domain	Phosphonate	Core and additional biosynthetic genes	8	350
+Putative metal-binding motif	NRPS	Core and additional biosynthetic genes	34	298
+Putative metal-binding motif	Polyketide	Core and additional biosynthetic genes	95	298
+Putative metal-binding motif	Other cluster*	Core and additional biosynthetic genes	2	298
+Putative metal-binding motif	Aryl polyene	Core and additional biosynthetic genes	60	298
+Putative metal-binding motif	RiPP	Core and additional biosynthetic genes	9	298
+Putative metal-binding motif	Lactone	Core and additional biosynthetic genes	3	298
+Putative metal-binding motif	Ladderane	Core and additional biosynthetic genes	40	298
+Putative metal-binding motif	Hybrid cluster	Core and additional biosynthetic genes	54	298
+Putative metal-binding motif	Terpene	Core and additional biosynthetic genes	1	298
+PqqD-like domain	RiPP	Core and additional biosynthetic genes	274	297
+PqqD-like domain	Hybrid cluster	Core and additional biosynthetic genes	16	297
+PqqD-like domain	Other cluster*	Core and additional biosynthetic genes	7	297
+B12 binding domain	Polyketide	Core and additional biosynthetic genes	47	276
+B12 binding domain	Other cluster*	Core and additional biosynthetic genes	13	276
+B12 binding domain	Aryl polyene	Core and additional biosynthetic genes	47	276
+B12 binding domain	Hybrid cluster	Core and additional biosynthetic genes	59	276
+B12 binding domain	Terpene	Core and additional biosynthetic genes	5	276
+B12 binding domain	Phosphonate	Core and additional biosynthetic genes	22	276
+B12 binding domain	RiPP	Core and additional biosynthetic genes	52	276
+B12 binding domain	Lactone	Core and additional biosynthetic genes	13	276
+B12 binding domain	Ladderane	Core and additional biosynthetic genes	13	276
+B12 binding domain	NRPS	Core and additional biosynthetic genes	5	276
+RiPP Recognition Element protein	RiPP	Core and additional biosynthetic genes	239	255
+RiPP Recognition Element protein	Hybrid cluster	Core and additional biosynthetic genes	15	255
+RiPP Recognition Element protein	Other cluster*	Core and additional biosynthetic genes	1	255
+ATPase	Polyketide	Core and additional biosynthetic genes	25	251
+ATPase	Hybrid cluster	Core and additional biosynthetic genes	38	251
+ATPase	Terpene	Core and additional biosynthetic genes	24	251
+ATPase	Other cluster*	Core and additional biosynthetic genes	13	251
+ATPase	NRPS	Core and additional biosynthetic genes	33	251
+ATPase	Aryl polyene	Core and additional biosynthetic genes	13	251
+ATPase	RiPP	Core and additional biosynthetic genes	36	251
+ATPase	Ladderane	Core and additional biosynthetic genes	45	251
+ATPase	Lactone	Core and additional biosynthetic genes	19	251
+ATPase	Phosphonate	Core and additional biosynthetic genes	5	251
+Glycosyl transferase	Hybrid cluster	Core and additional biosynthetic genes	43	223
+Glycosyl transferase	Aryl polyene	Core and additional biosynthetic genes	26	223
+Glycosyl transferase	Polyketide	Core and additional biosynthetic genes	10	223
+Glycosyl transferase	Other cluster*	Core and additional biosynthetic genes	6	223
+Glycosyl transferase	Phosphonate	Core and additional biosynthetic genes	28	223
+Glycosyl transferase	NRPS	Core and additional biosynthetic genes	15	223
+Glycosyl transferase	RiPP	Core and additional biosynthetic genes	77	223
+Glycosyl transferase	Terpene	Core and additional biosynthetic genes	12	223
+Glycosyl transferase	Ladderane	Core and additional biosynthetic genes	5	223
+Glycosyl transferase	Lactone	Core and additional biosynthetic genes	1	223
+Squalene-hopene cyclase domain	Terpene	Core and additional biosynthetic genes	173	190
+Squalene-hopene cyclase domain	Hybrid cluster	Core and additional biosynthetic genes	17	190
+Methyltransferase domain	Aryl polyene	Core and additional biosynthetic genes	16	188
+Methyltransferase domain	Phosphonate	Core and additional biosynthetic genes	43	188
+Methyltransferase domain	Hybrid cluster	Core and additional biosynthetic genes	37	188
+Methyltransferase domain	Terpene	Core and additional biosynthetic genes	14	188
+Methyltransferase domain	RiPP	Core and additional biosynthetic genes	31	188
+Methyltransferase domain	NRPS	Core and additional biosynthetic genes	8	188
+Methyltransferase domain	Lactone	Core and additional biosynthetic genes	10	188
+Methyltransferase domain	Polyketide	Core and additional biosynthetic genes	18	188
+Methyltransferase domain	Ladderane	Core and additional biosynthetic genes	6	188
+Methyltransferase domain	Other cluster*	Core and additional biosynthetic genes	5	188
+Acyl transferase domain	Hybrid cluster	Core and additional biosynthetic genes	73	170
+Acyl transferase domain	Polyketide	Core and additional biosynthetic genes	80	170
+His Kinase A (phospho-acceptor) domain	Polyketide	Core and additional biosynthetic genes	16	170
+Acyl transferase domain	Other cluster*	Core and additional biosynthetic genes	1	170
+His Kinase A (phospho-acceptor) domain	Hybrid cluster	Core and additional biosynthetic genes	26	170
+Acyl transferase domain	Aryl polyene	Core and additional biosynthetic genes	4	170
+Acyl transferase domain	Lactone	Core and additional biosynthetic genes	2	170
+His Kinase A (phospho-acceptor) domain	Aryl polyene	Core and additional biosynthetic genes	11	170
+His Kinase A (phospho-acceptor) domain	RiPP	Core and additional biosynthetic genes	25	170
+His Kinase A (phospho-acceptor) domain	Terpene	Core and additional biosynthetic genes	11	170
+His Kinase A (phospho-acceptor) domain	NRPS	Core and additional biosynthetic genes	25	170
+His Kinase A (phospho-acceptor) domain	Ladderane	Core and additional biosynthetic genes	28	170
+His Kinase A (phospho-acceptor) domain	Lactone	Core and additional biosynthetic genes	14	170
+His Kinase A (phospho-acceptor) domain	Other cluster*	Core and additional biosynthetic genes	11	170
+Acyl transferase domain	Ladderane	Core and additional biosynthetic genes	9	170
+His Kinase A (phospho-acceptor) domain	Phosphonate	Core and additional biosynthetic genes	3	170
+Acyl transferase domain	Terpene	Core and additional biosynthetic genes	1	170
+Iron-sulfur cluster-binding domain	RiPP	Core and additional biosynthetic genes	103	155
+Iron-sulfur cluster-binding domain	Hybrid cluster	Core and additional biosynthetic genes	14	155
+Iron-sulfur cluster-binding domain	Phosphonate	Core and additional biosynthetic genes	11	155
+Iron-sulfur cluster-binding domain	Aryl polyene	Core and additional biosynthetic genes	6	155
+Iron-sulfur cluster-binding domain	Polyketide	Core and additional biosynthetic genes	5	155
+Iron-sulfur cluster-binding domain	Other cluster*	Core and additional biosynthetic genes	11	155
+Iron-sulfur cluster-binding domain	Ladderane	Core and additional biosynthetic genes	2	155
+Iron-sulfur cluster-binding domain	Terpene	Core and additional biosynthetic genes	1	155
+Iron-sulfur cluster-binding domain	NRPS	Core and additional biosynthetic genes	2	155
+FAD/FMN binding domain	Hybrid cluster	Core and additional biosynthetic genes	12	84
+FAD/FMN binding domain	Terpene	Core and additional biosynthetic genes	11	84
+FAD/FMN binding domain	RiPP	Core and additional biosynthetic genes	17	84
+FAD/FMN binding domain	Aryl polyene	Core and additional biosynthetic genes	6	84
+FAD/FMN binding domain	Phosphonate	Core and additional biosynthetic genes	3	84
+FAD/FMN binding domain	NRPS	Core and additional biosynthetic genes	10	84
+FAD/FMN binding domain	Lactone	Core and additional biosynthetic genes	12	84
+FAD/FMN binding domain	Polyketide	Core and additional biosynthetic genes	9	84
+FAD/FMN binding domain	Other cluster*	Core and additional biosynthetic genes	1	84
+FAD/FMN binding domain	Ladderane	Core and additional biosynthetic genes	3	84
+FAD/FMN-dependent oxidoreductase	Polyketide	Core and additional biosynthetic genes	4	46
+FAD/FMN-dependent oxidoreductase	Terpene	Core and additional biosynthetic genes	5	46
+FAD/FMN-dependent oxidoreductase	Aryl polyene	Core and additional biosynthetic genes	8	46
+FAD/FMN-dependent oxidoreductase	Other cluster*	Core and additional biosynthetic genes	2	46
+FAD/FMN-dependent oxidoreductase	Hybrid cluster	Core and additional biosynthetic genes	13	46
+FAD/FMN-dependent oxidoreductase	NRPS	Core and additional biosynthetic genes	8	46
+FAD/FMN-dependent oxidoreductase	RiPP	Core and additional biosynthetic genes	6	46

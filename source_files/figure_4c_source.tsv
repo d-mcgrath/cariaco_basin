@@ -1,0 +1,129 @@
+description	product	group	number	n
+Beta-ketoacyl synthase domain	Hybrid cluster	Particle-associated	65	191
+Beta-ketoacyl synthase domain	Polyketide	Particle-associated	79	191
+Beta-ketoacyl synthase domain	Ladderane	Particle-associated	25	191
+Beta-ketoacyl synthase domain	Aryl polyene	Particle-associated	20	191
+Beta-ketoacyl synthase domain	Other cluster*	Particle-associated	2	191
+AMP-binding domain	Phosphonate	Particle-associated	4	121
+AMP-binding domain	Hybrid cluster	Particle-associated	49	121
+AMP-binding domain	NRPS	Particle-associated	48	121
+AMP-binding domain	Lactone	Particle-associated	10	121
+AMP-binding domain	Polyketide	Particle-associated	3	121
+AMP-binding domain	RiPP	Particle-associated	3	121
+AMP-binding domain	Other cluster*	Particle-associated	2	121
+AMP-binding domain	Ladderane	Particle-associated	2	121
+Phosphopantetheine attachment site	Hybrid cluster	Particle-associated	41	111
+Phosphopantetheine attachment site	Polyketide	Particle-associated	33	111
+Phosphopantetheine attachment site	NRPS	Particle-associated	29	111
+Phosphopantetheine attachment site	Ladderane	Particle-associated	2	111
+Phosphopantetheine attachment site	Aryl polyene	Particle-associated	6	111
+Radical SAM domain	Other cluster*	Particle-associated	6	107
+Radical SAM domain	Terpene	Particle-associated	8	107
+Radical SAM domain	RiPP	Particle-associated	54	107
+Radical SAM domain	Aryl polyene	Particle-associated	6	107
+Radical SAM domain	Hybrid cluster	Particle-associated	18	107
+Radical SAM domain	Phosphonate	Particle-associated	5	107
+Radical SAM domain	Polyketide	Particle-associated	4	107
+Radical SAM domain	Lactone	Particle-associated	1	107
+Radical SAM domain	Ladderane	Particle-associated	2	107
+Radical SAM domain	NRPS	Particle-associated	3	107
+RiPP Recognition Element protein	RiPP	Particle-associated	63	69
+RiPP Recognition Element protein	Hybrid cluster	Particle-associated	6	69
+Tetratricopeptide repeat	Hybrid cluster	Particle-associated	5	67
+Tetratricopeptide repeat	RiPP	Particle-associated	32	67
+Tetratricopeptide repeat	Other cluster*	Particle-associated	17	67
+Tetratricopeptide repeat	Polyketide	Particle-associated	3	67
+Tetratricopeptide repeat	NRPS	Particle-associated	5	67
+Tetratricopeptide repeat	Terpene	Particle-associated	4	67
+Tetratricopeptide repeat	Ladderane	Particle-associated	1	67
+Putative metal-binding motif	RiPP	Particle-associated	3	58
+Putative metal-binding motif	Ladderane	Particle-associated	22	58
+Putative metal-binding motif	Polyketide	Particle-associated	2	58
+Putative metal-binding motif	Hybrid cluster	Particle-associated	4	58
+Putative metal-binding motif	Terpene	Particle-associated	1	58
+Putative metal-binding motif	Aryl polyene	Particle-associated	8	58
+Putative metal-binding motif	NRPS	Particle-associated	18	58
+Response regulator receiver domain	Polyketide	Particle-associated	7	54
+Response regulator receiver domain	NRPS	Particle-associated	10	54
+Response regulator receiver domain	Hybrid cluster	Particle-associated	4	54
+Response regulator receiver domain	RiPP	Particle-associated	9	54
+Response regulator receiver domain	Terpene	Particle-associated	7	54
+Response regulator receiver domain	Lactone	Particle-associated	2	54
+Response regulator receiver domain	Aryl polyene	Particle-associated	4	54
+Response regulator receiver domain	Other cluster*	Particle-associated	1	54
+Response regulator receiver domain	Ladderane	Particle-associated	7	54
+Response regulator receiver domain	Phosphonate	Particle-associated	3	54
+PqqD-like domain	RiPP	Particle-associated	43	47
+PqqD-like domain	Hybrid cluster	Particle-associated	4	47
+ABC transporter	Terpene	Particle-associated	7	47
+ABC transporter	Polyketide	Particle-associated	7	47
+ABC transporter	Lactone	Particle-associated	6	47
+ABC transporter	RiPP	Particle-associated	16	47
+ABC transporter	Hybrid cluster	Particle-associated	5	47
+ABC transporter	Phosphonate	Particle-associated	1	47
+ABC transporter	Aryl polyene	Particle-associated	2	47
+ABC transporter	NRPS	Particle-associated	3	47
+Glycosyl transferase	Hybrid cluster	Particle-associated	13	44
+Glycosyl transferase	RiPP	Particle-associated	14	44
+Glycosyl transferase	Lactone	Particle-associated	4	44
+Glycosyl transferase	Polyketide	Particle-associated	2	44
+Glycosyl transferase	Phosphonate	Particle-associated	1	44
+Glycosyl transferase	Terpene	Particle-associated	3	44
+Glycosyl transferase	Ladderane	Particle-associated	1	44
+Glycosyl transferase	NRPS	Particle-associated	4	44
+Glycosyl transferase	Other cluster*	Particle-associated	1	44
+Glycosyl transferase	Aryl polyene	Particle-associated	1	44
+Squalene-hopene cyclase domain	Terpene	Particle-associated	40	43
+Squalene-hopene cyclase domain	Hybrid cluster	Particle-associated	3	43
+Acyl transferase domain	Hybrid cluster	Particle-associated	13	39
+Acyl transferase domain	Polyketide	Particle-associated	26	39
+ATPase	Polyketide	Particle-associated	5	37
+ATPase	NRPS	Particle-associated	7	37
+ATPase	Terpene	Particle-associated	5	37
+ATPase	Ladderane	Particle-associated	9	37
+ATPase	RiPP	Particle-associated	5	37
+ATPase	Lactone	Particle-associated	1	37
+ATPase	Hybrid cluster	Particle-associated	3	37
+ATPase	Other cluster*	Particle-associated	1	37
+ATPase	Phosphonate	Particle-associated	1	37
+Iron-sulfur cluster-binding domain	Aryl polyene	Particle-associated	2	27
+Iron-sulfur cluster-binding domain	RiPP	Particle-associated	17	27
+Iron-sulfur cluster-binding domain	Hybrid cluster	Particle-associated	2	27
+Iron-sulfur cluster-binding domain	Phosphonate	Particle-associated	1	27
+Iron-sulfur cluster-binding domain	Other cluster*	Particle-associated	3	27
+Iron-sulfur cluster-binding domain	Polyketide	Particle-associated	1	27
+Iron-sulfur cluster-binding domain	NRPS	Particle-associated	1	27
+B12 binding domain	RiPP	Particle-associated	8	26
+B12 binding domain	Hybrid cluster	Particle-associated	8	26
+B12 binding domain	Aryl polyene	Particle-associated	3	26
+B12 binding domain	Phosphonate	Particle-associated	3	26
+B12 binding domain	Ladderane	Particle-associated	1	26
+B12 binding domain	Polyketide	Particle-associated	1	26
+B12 binding domain	Other cluster*	Particle-associated	2	26
+Methyltransferase domain	Terpene	Particle-associated	4	23
+Methyltransferase domain	Polyketide	Particle-associated	3	23
+Methyltransferase domain	Hybrid cluster	Particle-associated	3	23
+Methyltransferase domain	RiPP	Particle-associated	7	23
+Methyltransferase domain	Phosphonate	Particle-associated	2	23
+Methyltransferase domain	NRPS	Particle-associated	3	23
+Methyltransferase domain	Ladderane	Particle-associated	1	23
+His Kinase A (phospho-acceptor) domain	Terpene	Particle-associated	2	21
+His Kinase A (phospho-acceptor) domain	Ladderane	Particle-associated	5	21
+His Kinase A (phospho-acceptor) domain	RiPP	Particle-associated	4	21
+His Kinase A (phospho-acceptor) domain	NRPS	Particle-associated	4	21
+His Kinase A (phospho-acceptor) domain	Lactone	Particle-associated	1	21
+His Kinase A (phospho-acceptor) domain	Hybrid cluster	Particle-associated	2	21
+His Kinase A (phospho-acceptor) domain	Other cluster*	Particle-associated	1	21
+His Kinase A (phospho-acceptor) domain	Polyketide	Particle-associated	1	21
+His Kinase A (phospho-acceptor) domain	Phosphonate	Particle-associated	1	21
+FAD/FMN binding domain	Hybrid cluster	Particle-associated	1	11
+FAD/FMN binding domain	RiPP	Particle-associated	2	11
+FAD/FMN binding domain	Ladderane	Particle-associated	3	11
+FAD/FMN binding domain	Terpene	Particle-associated	3	11
+FAD/FMN binding domain	Aryl polyene	Particle-associated	2	11
+FAD/FMN-dependent oxidoreductase	Other cluster*	Particle-associated	1	8
+FAD/FMN-dependent oxidoreductase	RiPP	Particle-associated	2	8
+FAD/FMN-dependent oxidoreductase	Aryl polyene	Particle-associated	1	8
+FAD/FMN-dependent oxidoreductase	Terpene	Particle-associated	1	8
+FAD/FMN-dependent oxidoreductase	NRPS	Particle-associated	2	8
+FAD/FMN-dependent oxidoreductase	Hybrid cluster	Particle-associated	1	8

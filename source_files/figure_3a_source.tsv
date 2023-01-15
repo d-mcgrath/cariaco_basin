@@ -1,0 +1,48 @@
+sample	UMAP1	UMAP2	cluster	depth	size_fraction	time_point	redox_regime	O2
+MPA900_2	-0.19724857682680108	2.6850659808235466	4	900	Particle-associated (>2.7 um)	May	Euxinic - Particle-associated (>2.7 um)	0
+MFL900_2	-1.2151126755295678	2.6706452117517685	4	900	Free-living (0.2-2.7 um)	May	Euxinic - Free-living (0.2-2.7 um)	0
+NPA143_1	1.1946631883257068	-1.7459446566235821	0	143	Particle-associated (>2.7 um)	November	Oxycline - Particle-associated (>2.7 um)	82
+NFL143_1	-0.7832257963831726	-3.156786340531771	1	143	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	82
+NPA200_1	0.5623388757794436	-1.132641431177439	2	200	Particle-associated (>2.7 um)	November	Oxycline - Particle-associated (>2.7 um)	14
+NFL200_1	-0.7331785425414217	-2.816884837614195	1	200	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	14
+NPA237_1	0.5695877008266472	-0.34141889038028606	2	237	Particle-associated (>2.7 um)	November	Oxycline - Particle-associated (>2.7 um)	0.4
+NFL237_1	-0.14599755680701687	0.2206488775889286	0	237	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	0.4
+NPA247_1	0.6828243522068225	-0.12161201723805726	2	247	Particle-associated (>2.7 um)	November	Shallow Anoxic - Particle-associated (>2.7 um)	0
+NFL247_1	-0.7701638800489432	0.9637696599800207	3	247	Free-living (0.2-2.7 um)	November	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+NPA267_1	-0.08533629475354765	2.3635394253302007	4	267	Particle-associated (>2.7 um)	November	Shallow Anoxic - Particle-associated (>2.7 um)	0
+NFL267_1	-0.68965379146116	0.7395368804654872	3	267	Free-living (0.2-2.7 um)	November	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+NPA900_1	0.33103882193724177	2.803795025998202	4	900	Particle-associated (>2.7 um)	November	Euxinic - Particle-associated (>2.7 um)	0
+NFL900_1	-0.921540680730685	2.398977026949786	4	900	Free-living (0.2-2.7 um)	November	Euxinic - Free-living (0.2-2.7 um)	0
+NFL143_2	-0.4508094171250354	-3.11643150042607	1	143	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	82
+NPA200_2	0.7737772093012105	-0.8342709440963375	2	200	Particle-associated (>2.7 um)	November	Oxycline - Particle-associated (>2.7 um)	14
+NFL200_2	-0.5459352497133132	-2.7742915352576643	1	200	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	14
+NPA237_2	0.8808217483608076	-0.2813544134358321	2	237	Particle-associated (>2.7 um)	November	Oxycline - Particle-associated (>2.7 um)	0.4
+NFL237_2	-0.43958270261981847	-0.11481748388496171	0	237	Free-living (0.2-2.7 um)	November	Oxycline - Free-living (0.2-2.7 um)	0.4
+NPA247_2	0.04998335368195228	-0.5085520821528356	0	247	Particle-associated (>2.7 um)	November	Shallow Anoxic - Particle-associated (>2.7 um)	0
+NFL247_2	-0.4202118612959196	0.522762743047726	3	247	Free-living (0.2-2.7 um)	November	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+NPA267_2	-0.24261874587184895	2.1724176735852225	4	267	Particle-associated (>2.7 um)	November	Shallow Anoxic - Particle-associated (>2.7 um)	0
+NFL267_2	-0.38133006819257265	0.7274004369587235	3	267	Free-living (0.2-2.7 um)	November	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+NPA900_2	0.23074327400150407	3.0114172634731373	4	900	Particle-associated (>2.7 um)	November	Euxinic - Particle-associated (>2.7 um)	0
+NFL900_2	-1.0665708679346575	2.50948643243772	4	900	Free-living (0.2-2.7 um)	November	Euxinic - Free-living (0.2-2.7 um)	0
+MPA103_1	0.9742890651985889	-2.568457885809023	0	103	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	123
+MFL103_1	0.6771275057602737	-2.8085856965547773	0	103	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	123
+MPA198_1	1.0267450279856987	-1.5089398330616073	2	198	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	37.9
+MFL198_1	-0.14194201689315866	-3.063493780372296	1	198	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	37.9
+MPA234_1	0.8367059321915291	-1.2585031172031453	2	234	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	12
+MFL234_1	-0.11694909083966287	-2.737681558109632	1	234	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	12
+MPA295_1	-0.545879409924789	2.947778748856069	4	295	Particle-associated (>2.7 um)	May	Shallow Anoxic - Particle-associated (>2.7 um)	0
+MFL295_1	0.035379904798326756	0.9303234502345346	0	295	Free-living (0.2-2.7 um)	May	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+MPA314_1	-0.1088489554051848	2.845400437177079	4	314	Particle-associated (>2.7 um)	May	Shallow Anoxic - Particle-associated (>2.7 um)	0
+MFL314_1	-1.0171772176617138	1.5984905849965674	0	314	Free-living (0.2-2.7 um)	May	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+MPA900_1	0.4381065623640472	2.6569092402555725	4	900	Particle-associated (>2.7 um)	May	Euxinic - Particle-associated (>2.7 um)	0
+MFL900_1	-1.2252964415878935	3.0310979055420706	4	900	Free-living (0.2-2.7 um)	May	Euxinic - Free-living (0.2-2.7 um)	0
+MPA103_2	0.8765346660111919	-2.464265165538227	0	103	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	123
+MFL103_2	0.9747006813315973	-2.8360304088973987	0	103	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	123
+MPA198_2	1.3995620679089211	-1.5627389176535114	0	198	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	37.9
+MFL198_2	0.04308465378811244	-3.5054918616600172	1	198	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	37.9
+MPA234_2	1.1221791864543396	-0.8089068672492244	2	234	Particle-associated (>2.7 um)	May	Oxycline - Particle-associated (>2.7 um)	12
+MFL234_2	-0.25104213834829636	-3.195209544490454	1	234	Free-living (0.2-2.7 um)	May	Oxycline - Free-living (0.2-2.7 um)	12
+MPA295_2	0.2841710678177649	2.0441702466294256	0	295	Particle-associated (>2.7 um)	May	Shallow Anoxic - Particle-associated (>2.7 um)	0
+MFL295_2	-0.33586369959502704	1.150499300355705	3	295	Free-living (0.2-2.7 um)	May	Shallow Anoxic - Free-living (0.2-2.7 um)	0
+MPA314_2	-0.5306131978341293	2.702229773919803	4	314	Particle-associated (>2.7 um)	May	Shallow Anoxic - Particle-associated (>2.7 um)	0
+MFL314_2	-0.6022359701064124	1.5669484430610414	4	314	Free-living (0.2-2.7 um)	May	Shallow Anoxic - Free-living (0.2-2.7 um)	0
