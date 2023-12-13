@@ -1949,19 +1949,25 @@ processed_mapping_counts = future_map2(
     prepare_read_mappings(.x, .y)
 )
 
-processed_mapping_counts_colnames = names(processed_mapping_counts)
+processed_mapping_counts_colnames = 
+  c("MFL103_1","MFL103_2","MFL198_1","MFL198_2","MFL234_1","MFL234_2","MFL295_1","MFL295_2","MFL314_1","MFL314_2","MFL900_1",
+        "MFL900_2","MPA103_1","MPA103_2","MPA198_1","MPA198_2","MPA234_1","MPA234_2","MPA295_1","MPA295_2","MPA314_1","MPA314_2",
+        "MPA900_1","MPA900_2","NFL148_1","NFL148_2","NFL200_1","NFL200_2","NFL237_1","NFL237_2","NFL247_1","NFL247_2","NFL267_1",
+        "NFL267_2","NFL900_1","NFL900_2","NPA148_1","NPA148_2","NPA200_1","NPA200_2","NPA237_1","NPA237_2","NPA247_1","NPA247_2",
+        "NPA267_1","NPA267_2","NPA900_1","NPA900_2")
 
+# rename samples to use sample names used in the paper
 processed_mapping_counts = processed_mapping_counts %>% 
   reduce(left_join, by = 'gene_name') %>% 
   rename_with(~ processed_mapping_counts_colnames, .cols = 2:last_col())
   
 
 # save the list of processed files
-write_tsv(processed_mapping_counts, file = '~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/tbl_of_mapped_metaG_reads_from_each_sample.tsv.gz')
+write_tsv(processed_mapping_counts, file = '~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/tbl_of_mapped_metaT_reads_from_each_sample.tsv.gz')
 
 
 # to view the output:
-processed_mapping_counts = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/tbl_of_mapped_metaG_reads_from_each_sample.tsv.gz')
+processed_mapping_counts = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/tbl_of_mapped_metaT_reads_from_each_sample.tsv.gz')
 
 ```
 
@@ -1975,19 +1981,7 @@ Prepare gene expression matrix for DESeq2 differential expression analysis
 # deseq2 ALL PA DEPTHS VS ALL FL DEPTHS run on minimap2 counts files -- 95% min percent identity of alignments at least 50% of read length aligned  --------
 
 # load list of tibbles - each tibble containing the read-mapping counts to genes from each metatranscriptomic sample
-mapped_read_counts = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/list_of_mapped_metaT_reads_from_each_sample.tsv.gz')
-
-# join the tibbles together
-mapped_read_counts2 =
-  reduce(mapped_read_counts, left_join, by = 'gene_name')
-
-# rename samples to use sample names used in the paper
-mapped_read_counts =
-  mapped_read_counts %>%
-  rename_with(
-    ~ sample_names,
-    .cols = 2:last_col()
-  )
+mapped_read_counts = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/flatfiles/tbl_of_mapped_metaT_reads_from_each_sample.tsv.gz')
 
 mapped_read_counts =
   mapped_read_counts %>%
@@ -2055,7 +2049,7 @@ da_dds <- DESeq2::DESeqDataSetFromMatrix(mapped_read_counts,
                                          colData = col_data,
                                          design = ~ group)
 
-register(MulticoreParam(40))
+register(MulticoreParam(10))
 
 da_final_dds <- DESeq2::DESeq(da_dds, parallel = TRUE) # run the DESeq2 statistical model which assumes a negative binomial 
 
