@@ -20,6 +20,7 @@ Load required R libraries
 
 ```{r message=FALSE, warning=FALSE, include=TRUE}
 library(tidyverse)
+library(furrr)
 library(ComplexHeatmap)
 library(readxl)
 library(umap)
@@ -34,6 +35,7 @@ library(pheatmap) # for heatmap plots
 library(janitor)
 library(ggfortify)
 library(grid)
+# genbankr is required but not loaded
 ```
 
 <br>
@@ -41,9 +43,114 @@ library(grid)
 ## Figure 1. Normalized biosynthetic gene cluster count per phylum
 ```{r}
 # BGC frequency plot by phylum --------------------------------------------
-bgc_count_data_summary = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/bgc_count_data_summary.rds')
+mag_data = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/mags_75compl_5cont.tsv.gz',
+                    show_col_types = FALSE) %>%
+  rename(mag_name = bin_id) %>%
+  mutate(mag_name = mag_name %>% str_replace('CarAnox_mtb2-', 'MAG_'))
 
-smc = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/smc.rds')
+plan(multisession, workers = 8)
+
+filepaths = list.files(path = '~/Documents/cariaco-tidy-analysis/cariaco_github_data_small/bgc_data/all_bgcs',
+                       pattern = '*.gbk',
+                       full.names = TRUE)
+
+filenames = filepaths %>% 
+  str_replace('.*\\/(.*region.*)', '\\1')
+
+
+## function to parse genbank files
+parse_genbank = function(filepath, filename) {
+  genbank = genbankr::parseGenBank(filepath)
+  
+  genbank = genbank$FEATURES %>%
+    purrr::map_dfr(~ .x) %>%
+    mutate(contig = genbank$ACCESSION,
+           filename = filename,
+           filepath = filepath) %>%
+    relocate(c(filepath, filename, contig, product), .before = 1)
+  
+  return(genbank)
+}
+
+
+# create result and summary objects
+bgc_summary = future_map2(filepaths, filenames, ~ parse_genbank(.x, .y))%>% 
+  future_map_dfr(~ .x %>% 
+                   filter(type == 'protocluster') %>%
+                   select(product, contig, start, end,
+                          core_location, detection_rule,
+                          filename, filepath)) %>% 
+  as_tibble() %>% 
+  mutate(mag_name = contig %>% str_extract('(MAG_\\d+)'),
+         bgc_size_bp = end - start) %>% #pull(bgc_size_bp) %>% {function(x){x > 0}}() %>% table()
+  filter(bgc_size_bp >= 10000) %>% 
+  group_by(contig) %>% 
+  rename(product = product) %>% 
+  mutate(is_hybrid = if_else(n() > 1, TRUE, FALSE)) %>% 
+  ungroup() %>% 
+  mutate(
+    product_bin = case_when(
+      !is_hybrid & str_detect(product, 'lanthipeptide|RRE-containing|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides') ~ 'RiPP',
+      !is_hybrid & str_detect(product, 'lactone') ~ 'Lactone',
+      !is_hybrid & str_detect(product, 'acyl_amino_acids|nucleoside|PBDE|indole|siderophore|resorcinol|ectoine|NAPAA|CDPS|LAP|redox-cofactor') ~ 'Other cluster*',
+      !is_hybrid & str_detect(product, 'hglE-KS') ~ 'PKS',
+      !is_hybrid & str_detect(product, 'arylpolyene') ~ 'Aryl polyene',
+      !is_hybrid & str_detect(product, 'PKS') ~ 'PKS',
+      !is_hybrid & str_detect(product, 'NRPS') ~ 'NRPS',
+      !is_hybrid & str_detect(product, 'redox-cofactor') ~ 'Redox-cofactor',
+      #
+      is_hybrid & str_detect(product, 'NRPS') & str_detect(product, 'PKS|hglE-KS') ~ 'NRPS-PKS hybrid',
+      is_hybrid & str_detect(product, 'NRPS') & !str_detect(product, 'PKS|hglE-KS|lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') ~ 'NRPS hybrid',
+      is_hybrid & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'PKS|NRPS|hglE-KS') ~ 'RiPP hybrid',
+      is_hybrid & str_detect(product, 'PKS|hglE-KS') & !str_detect(product, 'NRPS|lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') ~ 'PKS hybrid',
+      is_hybrid & str_detect(product, 'NRPS') & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'PKS|hglE-KS') ~ 'NRPS-RiPP hybrid',
+      is_hybrid & str_detect(product, 'PKS|hglE-KS') & str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP') & !str_detect(product, 'NRPS') ~ 'PKS-RiPP hybrid',
+      is_hybrid & str_detect(product, 'terpene') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS') ~ 'Terpene hybrid',
+      is_hybrid & str_detect(product, 'ladderane') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Ladderane hybrid',
+      is_hybrid & str_detect(product, 'arylpolyene') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Aryl polyene hybrid',
+      is_hybrid & str_detect(product, 'lactone') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Lactone hybrid',
+      is_hybrid & str_detect(product, 'CDPS') & !str_detect(product, 'lanthipeptide|RRE|thiopeptide|proteusin|lassopeptide|sactipeptide|ranthipeptide|thioamitides|RiPP|PKS|NRPS|hglE-KS|terpene') ~ 'Other hybrid',
+      #
+      TRUE ~ product
+    )) %>% 
+  group_by(contig) %>% 
+  mutate(product_bin = if_else(str_detect(product_bin, '^[:lower:]'), str_to_title(product_bin), product_bin), 
+         new_product = case_when(
+           product_bin == 'RiPP-like' ~ 'RiPP',
+           product_bin %in% c('Prodigiosin','Redox-Cofactor','LAP','PUFA','Resorcinol','Other') ~ 'Other cluster*',
+           str_detect(product_bin, 'hybrid') ~ 'Hybrid cluster',
+           TRUE ~ product_bin
+         )) %>% 
+  relocate(new_product) %>% #pull(new_product) %>% table() %>% sort()
+  group_by(contig) %>% 
+  mutate(new_product = case_when(n() > 1 ~ 'Hybrid cluster', TRUE ~ new_product)) %>% 
+  ungroup()
+
+bgc_summary %>% 
+  select(new_product, mag_name, contig) %>% 
+  distinct() %>% 
+  pull(new_product) %>% 
+  table() %>% 
+  sort()
+
+   # Phosphonate      Ladderane   Aryl polyene Other cluster*        Lactone            PKS           NRPS Hybrid cluster        Terpene           RiPP 
+   #          29             51             57             57             96            113            115            133            196            335 
+
+
+bgc_count_data_summary = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/bgc_count_data_summary.tsv.gz')
+
+smc = c("Aryl polyene" = "#7E6EA2", 
+        "Lactone" = "#cd5c5c", 
+        "NRPS" = "#A0A811", 
+        "PKS" = "#B78415", 
+        "RiPP" = "#BD6332", 
+        "Hybrid cluster" = "#B3499C", 
+        "Ladderane" = "#E0A604", 
+        "Other cluster*" = "#1B9E77", 
+        "Phosphonate" = "#B294C7", 
+        "Terpene" = "#7D8F31")
+
+#smc = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/smc.rds')
 
 
 highlight <- function(x, pat, color = "black", family = "") {
@@ -126,7 +233,7 @@ sm_freq_plot
 ## Figure 2. Expression of secondary metabolite biosynthetic transcripts from individual MAGs in metatranscriptomic samples
 
 ```{r}
-mm2_final = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
+mm2_final = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/logTransformed_tpm_for_bgc_genes_minimap2_res.tsv.gz')
 
 metaT_col_order = tibble(
   sample_name = colnames(mm2_final)[2:ncol(mm2_final)],
@@ -319,13 +426,13 @@ mm2_final_plot = ComplexHeatmap::draw(
 
 # Metatranscriptome UMAP analysis ----------------------------------------------------
 setwd('~/Documents/cariaco-tidy-analysis/')
-rnaseq_mapping_counts = readRDS('rdata-files/rnaseq_read_mapping_minimap2_on_cariaco_genes.rds')
+rnaseq_mapping_counts = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/rnaseq_read_mapping_minimap2_on_cariaco_genes.tsv.gz')
 
-bgc_genes_10kb = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/bgc_genes_10kb.rds')
+bgc_genes_10kb = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/bgc_genes_10kb.tsv.gz')
 
-mm2_final = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
+mm2_final = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/logTransformed_tpm_for_bgc_genes_minimap2_res.tsv.gz')
 
-col_metadata = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/col_metadata.rds')
+col_metadata = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/col_metadata.tsv.gz')
 
 rnaseq_umap_tbl = mm2_final |>
   filter(gene_name %in% bgc_genes_10kb$gene_name) |>
@@ -387,7 +494,7 @@ umap_df2 <- res_umap2$layout |>
 
 
 # Metagenome UMAP analysis ----------------------------------------------------
-dnaseq_umap_tbl = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/metaG_processed_mapping_tbl.rds')
+dnaseq_umap_tbl = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/metaG_processed_mapping_tbl.tsv.gz')
 
 dnaseq_umap_tbl = dnaseq_umap_tbl |>  #rnaseq_mapping_counts |>
   filter(gene_name %in% bgc_genes_10kb$gene_name) |>
@@ -576,9 +683,25 @@ umap_final_joint_plot
 ## Figure 4. Distribution of core and additional biosynthetic genes or domains and transcripts from biosynthetic gene clusters
 
 ```{r}
-final_domain_summary = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/final_domain_summary.rds')
-smc_palette = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/smc_palette.rds')
-final_de_and_clust_data = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/final_de_and_clust_data.rds')
+smc_palette_names = c(
+  'Aryl polyene',
+  'Phosphonate',
+  'Polyketide',
+  'Other cluster*',
+  'RiPP',
+  'Terpene',
+  'NRPS',
+  'Hybrid cluster',
+  'Lactone',
+  'Ladderane'
+)
+
+smc_palette = c("#7E6EA2","#B294C7","#B78415","#1B9E77","#BD6332",
+                 "#7D8F31","#A0A811","#B3499C","#CD5555","#E0A604") %>% 
+  set_names(nm = smc_palette_names)
+
+final_domain_summary = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile//final_domain_summary.tsv.gz')
+final_de_and_clust_data = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/final_de_and_clust_data.tsv.gz')
 
 # create plot showing the most frequently occurring core/auxiliary biosynthetic genes in the Cariao MAGs
 all_common_domains_plot =
@@ -829,8 +952,9 @@ FINAL_ALL_DOMAINS_PLOT
  
 ```{r}
 # Distribution of MAG phyla recovered and average genome completeness per phylum --------------------------------
-sm_key = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/sm_key.rds')
-mag_table = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/mag_table.rds')
+sm_key = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/sm_key.tsv.gz')
+mag_table = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/mag_table.tsv.gz')
+
 
 heat_colors <- c(colorRampPalette(colors = 'white')(1),
                  colorRampPalette(colors = c('#ABD9E9',
@@ -961,9 +1085,9 @@ mag_dist_plot
 
 Process the CoverM relative abundance output files, plot relative abundance of the most abundant MAGs
 ```{r echo=TRUE}
-mag_table = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/mag_table.rds')
+mag_table = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/mag_table.tsv.gz')
 
-final_genome_rel_abun_tbl = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/rel_abun_tibble_48_samples.rds')
+final_genome_rel_abun_tbl = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/rel_abun_tibble_48_samples.tsv.gz')
 
 # create sample names key
 metaG_sampleNames_key.X = tibble(
@@ -1224,7 +1348,7 @@ final_genome_rel_abun_plot = final_genome_rel_abun_tbl %>%
       '32.12%   '))
   )
 
-final_genome_rel_abun_plot
+#final_genome_rel_abun_plot
 ```
 
 
@@ -1272,10 +1396,7 @@ mapped_read_counts =
 
 Load additional data related to the differential abundance analysis, prep the DESeq2 object and run DESeq2
 ```{r eval=FALSE, include=TRUE}
-# Load a tibble with taxonomic and assembly information for each MAG
-#mag_table <- readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/coverM/deseq2_dnaseq_rdata/draftMag-taxonomic-table-cariaco.RDA')
-
-mag_table = read_csv('rdata-files/mags_75compl_5cont.csv', show_col_types = FALSE)
+mag_table = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/mags_75compl_5cont.tsv.gz', show_col_types = FALSE)
 
 taxonomic_ranks = c('domain', 'phylum', 'class', 'order', 'family', 'genus', 'species')
 
@@ -1331,7 +1452,7 @@ da_dds <- DESeq2::DESeqDataSetFromMatrix(countData = mapped_read_counts,
                                          design = ~ group)
 
 # Run the DESeq2 statistical model on the data; assumes the data have a negative binomial distribution
-da_final_dds <- DESeq(da_dds) 
+da_final_dds <- DESeq2::DESeq(da_dds) 
 ```
 
 <br>
@@ -1339,15 +1460,15 @@ da_final_dds <- DESeq(da_dds)
 Extract the results from the oxycline, shallow anoxic, and euxinic depths that compare PA and FL fraction types
 ```{r eval=FALSE, include=TRUE}
 # pull Wald test results comparing the oxycline PA to FL fractions
-oxycline <- results(da_final_dds, contrast = c('group',
+oxycline <- DESeq2::results(da_final_dds, contrast = c('group',
                                                'PA_oxycline', 'FL_oxycline'), alpha = 0.05)
 
 # pull Wald test results comparing the euxinic PA to FL fractions
-euxinic <- results(da_final_dds, contrast = c('group',
+euxinic <- DESeq2::results(da_final_dds, contrast = c('group',
                                               'PA_euxinic', 'FL_euxinic'), alpha = 0.05)
 
 # pull Wald test results comparing the shallow anoxic PA to FL fractions
-shallow_anoxic <- results(da_final_dds, contrast = c('group', 'PA_shallow.anoxic',
+shallow_anoxic <- DESeq2::results(da_final_dds, contrast = c('group', 'PA_shallow.anoxic',
                                                      'FL_shallow.anoxic'), alpha = 0.05)
 
 # create a comprehensive tibble including all differential abundance results
@@ -1373,8 +1494,10 @@ allDaResults <- list(oxycline = oxycline,
                                       'no significant difference'))))
 
 # save the differential abundance final results tibble
-saveRDS(allDaResults, file = '~/path/to/github_data/coverM/dna/rdata/deseq2_dnaseq_rdata/deseq2_results_by_water_layer.rds')
+allDaResults = allDaResults %>% 
+  map_dfr(~ .x)
 
+write_tsv(allDaResults, file = '~/Documents/cariaco-tidy-analysis/rds_to_flatfile/deseq2_results_by_water_layer.tsv.gz')
 ```
 
 <br>
@@ -1391,7 +1514,12 @@ library(glue) # used for ggplots
 
 
 #locally load DESeq2 results
-allDaResults = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/deseq2_results_by_water_layer.rds')
+allDaResults = read_tsv(file = '~/Documents/cariaco-tidy-analysis/rds_to_flatfile/deseq2_results_by_water_layer.tsv.gz')
+
+allDaResults = allDaResults %>% 
+  group_by(layer) %>% 
+  group_split() %>% 
+  set_names(map_chr(., ~ unique(.x$layer)))
 
 ## plotting
 magFractionPref <- allDaResults %>%
@@ -1430,7 +1558,8 @@ magFractionPref_plot
 ## Supplementary Figure 4. Distribution of biosynthetic gene clusters identified using antiSMASH 6.0
 
 ```{r}
-bgc_summary = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/bgc_summary.rds')
+bgc_summary = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/bgc_summary.tsv.gz')
+
 
 bgc_10k_kb = bgc_summary %>%
   mutate(size = end - start, .after = contig) %>%
@@ -1685,7 +1814,8 @@ processed_mapping_counts =
     gene_name, '(MAG_\\d+)_(\\d+_\\d+)', '\\1-ctg\\2'))
 
 #read in gene lengths data
-gl = readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/rdata/gene_lengths_tibble.rda')
+gl = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/gene_lengths_tibble.tsv.gz')
+
 
 gl = gl %>%
   mutate(gene_length = gene_length / 1000) # convert unit length to kilobases
@@ -1747,7 +1877,7 @@ plan(multicore, workers = 19)
 #(125000 * 1024 ^2) %>% clipr::write_clip()
 options(future.globals.maxSize = 1.31072e+11) #125000 * 1024 ^2
 
-empty_gene_counts_filler = readRDS('rdata/metaG_empty_gene_counts_filler.rds')
+empty_gene_counts_filler = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/metaG_empty_gene_counts_filler.tsv.gz')
 
 # create vector of .paf full file paths
 file_paths = system('ls *.paf', intern = TRUE)
@@ -1823,10 +1953,10 @@ files = system('ls *.paf', intern = TRUE)
 sample_names = str_replace(files, '.paf', '')
 
 # load list of tibbles - each tibble containing the read-mapping counts to genes from each metatranscriptomic sample
-mapped_read_counts = readRDS('rdata/list_of_mapped_metaT_reads_from_each_sample.rds')
+mapped_read_counts %>% write_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/list_of_mapped_metaT_reads_from_each_sample.tsv.gz')
 
 # join the tibbles together
-mapped_read_counts =
+mapped_read_counts2 =
   reduce(mapped_read_counts, left_join, by = 'gene_name')
 
 # rename samples to use sample names used in the paper
@@ -1860,7 +1990,8 @@ col_data = tibble(sample = colnames(mapped_read_counts)) %>%
 all(colnames(mapped_read_counts) == col_data$sample) # TRUE
 
 # load a tibble containing the length in bp of each gene from all Cariaco MAGs
-gl = readRDS('/vortexfs1/omics/pachiadaki/dgellermcgrath/cariaco-work-051121/antismash6_cariaco_rdata/FINAL_PRODIGAL_AND_ANTISMASH_OUTPUTS_012422/rdata/gene_lengths_tibble.rda')
+gl = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/gene_lengths_tibble.tsv.gz')
+
 
 gl = gl %>%
   mutate(gene_length = gene_length / 1000) # convert length unit to kilobases
@@ -2072,7 +2203,7 @@ map_chr(ls(), ~ paste0(.x, ': ', object.size(get(.x)) %>% format(units = "Mb")))
 final_de_and_clust_data = pa_expressed %>%
   bind_rows(fl_expressed)
 
-test_final_de = readRDS('~/Downloads/final_de_and_uniq_expr_clust_data.rds')
+test_final_de = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/final_de_and_uniq_expr_clust_data.tsv.gz')
 
 
 #PA
@@ -2117,7 +2248,8 @@ test_final_de %>%
 <br>
 
 ```{r}
-clust_gene_summary = readRDS('~/Documents/cariaco-tidy-analysis/cariaco_github_data_small/rdata/clust_gene_summary.rds')
+clust_gene_summary = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/clust_gene_summary.tsv.gz')
+
 
 allDaResults = allDaResults %>%
   map_dfr(~ .x)
@@ -2199,7 +2331,7 @@ fl_transporter_summary %>%
 
 
 #####
-logTransformed_tpm_for_bgc_genes_minimap2_res = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
+logTransformed_tpm_for_bgc_genes_minimap2_res = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/logTransformed_tpm_for_bgc_genes_minimap2_res.tsv.gz')
 
 
 # temp_FL_rowAnno = temp_FL_rowAnno %>%
@@ -3058,8 +3190,9 @@ all_bgc_expr_frac_pref_plots
 annotated as ladderanes
 
 ```{r}
-logTransformed_tpm_for_bgc_genes_minimap2_res = readRDS('~/Documents/cariaco-tidy-analysis/rdata-files/logTransformed_tpm_for_bgc_genes_minimap2_res.rds')
-ladderane_colAnno = readRDS('~/Documents/cariaco-tidy-analysis/cariaco_github_data_small/rdata/ladderane_colAnno.rds')
+logTransformed_tpm_for_bgc_genes_minimap2_res = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile/logTransformed_tpm_for_bgc_genes_minimap2_res.tsv.gz')
+ladderane_colAnno = read_tsv('~/Documents/cariaco-tidy-analysis/rds_to_flatfile//ladderane_colAnno.tsv.gz')
+
 
 allDaResults_df = allDaResults %>%
   map_dfr(~ .x) %>%
@@ -3513,25 +3646,4 @@ coverm genome \
 --exclude-supplementary \
 --threads 36 \
 -o "$OUT_DIR"/"$FILE_PATTERN"_minReadAlignedPercent95.tsv
-```
-
-<br>
-
-## Command line interactive script to detect chimerism and contamination in ladderane BGCs using the GUNC command line tool
-
-```{bash, eval=FALSE, include=TRUE}
-conda activate gunc # activate gunc conda environment
-
-LADDERANE_DIR=$(echo "path/to/genomes/containing/predicted/ladderane/clusters/fasta/files/dir/")
-
-GUNC_DB=$(echo "path/to/GUNC/db")
-
-OUT_DIR=$(echo "path/to/desired/output/dir/")
-
-for MAG in "$LADDERANE_DIR"
-do gunc run \
--i "$MAG" \
--r "$GUNC_DB" \
---output-dir "$OUT_DIR"/"$MAG" \
---threads 36
 ```
